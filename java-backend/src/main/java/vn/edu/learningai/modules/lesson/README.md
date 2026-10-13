@@ -1,5 +1,0 @@
-# Module lesson
-
-Bài học, YouTube URL, thứ tự, transcript và tài liệu.
-
-Chưa có code và chưa gán owner/reviewer. api nhận request/trả DTO; application điều phối use case/port/transaction; domain giữ business rules; infrastructure triển khai persistence/integration adapter. Tuân theo architecture, contracts và business-rules dùng chung. Không tự tạo schema hoặc contract riêng.
