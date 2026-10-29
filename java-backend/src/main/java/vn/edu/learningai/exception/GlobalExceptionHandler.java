@@ -2,6 +2,9 @@ package vn.edu.learningai.exception;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -37,8 +40,34 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException e) {
+        log.error("UNCATEGORIZED_EXCEPTION: ", e);
         return ResponseEntity
             .status(ErrorCode.UNCATEGORIZED_EXCEPTION.getStatus())
             .body(ErrorResponse.from(ErrorCode.UNCATEGORIZED_EXCEPTION.name(), ErrorCode.UNCATEGORIZED_EXCEPTION.getDefaultMessage()));
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleBadCredentialsException(BadCredentialsException e) {
+        return ResponseEntity.status(ErrorCode.UNAUTHORIZED.getStatus())
+            .body(ErrorResponse.from(
+                ErrorCode.UNAUTHORIZED.name(),
+                ErrorCode.UNAUTHORIZED.getDefaultMessage()));
+    }
+
+    @ExceptionHandler(value = AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException e) {
+
+        return ResponseEntity.status(ErrorCode.FORBIDDEN.getStatus())
+            .body(ErrorResponse.from(
+                ErrorCode.FORBIDDEN.name(), ErrorCode.FORBIDDEN.getDefaultMessage()));
+    }
+
+    @ExceptionHandler(DisabledException.class)
+    public ResponseEntity<ErrorResponse> handleDisabledException(DisabledException e) {
+
+        return ResponseEntity.status(ErrorCode.ACCOUNT_INACTIVE.getStatus())
+            .body(ErrorResponse.from(
+                ErrorCode.ACCOUNT_INACTIVE.name(),
+                ErrorCode.ACCOUNT_INACTIVE.getDefaultMessage()));
     }
 }

@@ -9,7 +9,7 @@ PK BIGINT identity; wire ID string. TIMESTAMPTZ UTC; price NUMERIC(14,2); score 
 | teacher_requests | id PK, user_id FK users, reason TEXT, status CHECK PENDING/APPROVED/REJECTED, decided_by? FK users, decision_note?, decided_at?, created_at |
 | categories | id PK, name VARCHAR(120) UNIQUE, description? TEXT, created_at, updated_at |
 | courses | id PK, teacher_id FK users, category_id FK categories, title VARCHAR(200), description TEXT, thumbnail_url?, thumbnail_storage_key?, price NUMERIC CHECK ≥0 DEFAULT 0, is_published BOOLEAN DEFAULT false, archived_at?, created_at, updated_at |
-| course_members | course_id FK courses + student_id FK users = composite PK, enrolled_at |
+| course_members | id PK, course_id FK courses, student_id FK users, enrolled_at; UNIQUE(course_id, student_id) |
 | lessons | id PK, course_id FK courses, title VARCHAR(200), video_url VARCHAR(2048), transcript_text? TEXT, order_index INT CHECK ≥0, created_at, updated_at |
 | lesson_documents | id PK, lesson_id FK lessons, uploaded_by FK users, original_name VARCHAR(255), storage_key VARCHAR(512) UNIQUE, media_type VARCHAR(100), size_bytes BIGINT CHECK >0, extracted_text? TEXT, content_hash VARCHAR(64), created_at |
 | ai_generations | id PK, lesson_id FK lessons, source_document_id? FK lesson_documents SET NULL, source_type CHECK TRANSCRIPT/DOCUMENT, generation_type CHECK QUIZ/FLASHCARD, requested_count INT CHECK 1..10, difficulty? CHECK EASY/MEDIUM/HARD, provider VARCHAR(100), model VARCHAR(100), prompt_version VARCHAR(50), source_hash VARCHAR(64), status CHECK SUCCEEDED/FAILED, candidate_json? JSONB, error_code?, created_by FK users, created_at |

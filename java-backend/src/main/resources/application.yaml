@@ -3,6 +3,8 @@ server:
 spring:
   application:
     name: learningai
+  jackson:
+    property-naming-strategy: SNAKE_CASE
   datasource:
     url: ${DBMS_CONNECTION}
     username: ${DBMS_USERNAME}
@@ -12,7 +14,7 @@ spring:
       pageable:
         default-page-size: 10
         max-page-size: 100
-        one-indexed-parameters: false
+        one-indexed-parameters: true
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -20,4 +22,14 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: true
+jwt:
+  jwt-signing-key: ${JWT_SIGNING_KEY}
+  access-ttl: 900000 # ms - 15 mins
+  refresh-ttl: 604800000 # ms - 7 days
+
+app:
+  auth:
+    cookie:
+      secure: ${AUTH_COOKIE_SECURE:true}
+      same-site: Lax
 
