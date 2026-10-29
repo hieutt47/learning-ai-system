@@ -1,6 +1,6 @@
 # Backend Java — triển khai trước
 
-Stack theo đề tài: Spring Boot, Spring Security/JWT, Hibernate/JPA và PostgreSQL. **Chưa chọn JDK/framework version/build tool; chưa có pom.xml, Gradle, main class, dependency hoặc ứng dụng chạy được.** Chốt theo quy định môn trước bootstrap.
+Stack theo đề tài: Spring Boot, Spring Security/JWT, Hibernate/JPA và MySQL. **Chưa chọn JDK/framework version/build tool; chưa có pom.xml, Gradle, main class, dependency hoặc ứng dụng chạy được.** Chốt theo quy định môn trước bootstrap.
 
 Package baseline `vn.edu.learningai`; đổi namespace một lần trước viết code nếu nhóm có quy định. Mã tương lai đặt trong `src/main/java/vn/edu/learningai/modules/<module>/`:
 
