@@ -3,7 +3,7 @@
 | ID | Nội dung | Baseline | Trạng thái |
 |---|---|---|---|
 | D01 | Nhóm | 5 người; chưa gán việc | Người dùng xác nhận |
-| D02 | Backend/DB | Spring Boot/JPA → FastAPI/SQLAlchemy; PostgreSQL | README |
+| D02 | Backend/DB | Spring Boot/JPA → FastAPI/SQLAlchemy; MySQL | README |
 | D03 | Kiến trúc | Modular monolith, module tương ứng hai ngôn ngữ | Đề xuất |
 | D04 | API | `/api/v1`, snake_case, ID string | Đề xuất |
 | D05 | Migration | SQL PostgreSQL dùng chung là nguồn chuẩn | Đề xuất |
