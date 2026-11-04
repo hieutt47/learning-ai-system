@@ -1,6 +1,6 @@
 # Từ điển dữ liệu — baseline đề xuất
 
-PK BIGINT identity; wire ID string. TIMESTAMPTZ UTC; price NUMERIC(14,2); score NUMERIC(5,2). Enum lưu VARCHAR + CHECK để hai ORM ánh xạ cùng nghĩa. Mặc định field bắt buộc trừ đánh dấu `?` nullable. Text/candidate giới hạn tại validation. FK RESTRICT mặc định, không cascade xóa lịch sử.
+DB MySQL 8 (InnoDB, utf8mb4). PK BIGINT AUTO_INCREMENT; wire ID string. Thời gian DATETIME(6) lưu UTC (app/connection đặt time zone UTC); price DECIMAL(14,2); score DECIMAL(5,2); JSON cho dữ liệu candidate. Enum dùng kiểu ENUM của MySQL như migration V1; trong bảng dưới, `CHECK A/B` là tập giá trị cho phép (ENUM), còn CHECK khoảng giá trị (≥0, 1..10…) là ràng buộc CHECK của MySQL 8.0.16+. Hai ORM ánh xạ ENUM sang enum string cùng nghĩa. Mặc định field bắt buộc trừ đánh dấu `?` nullable. Text/candidate giới hạn tại validation. FK RESTRICT mặc định, không cascade xóa lịch sử.
 
 | Bảng | Field |
 |---|---|
@@ -8,26 +8,27 @@ PK BIGINT identity; wire ID string. TIMESTAMPTZ UTC; price NUMERIC(14,2); score 
 | auth_sessions | id PK, user_id FK users, refresh_token_hash VARCHAR(255) UNIQUE, expires_at, revoked_at?, created_at, updated_at |
 | teacher_requests | id PK, user_id FK users, reason TEXT, status CHECK PENDING/APPROVED/REJECTED, decided_by? FK users, decision_note?, decided_at?, created_at |
 | categories | id PK, name VARCHAR(120) UNIQUE, description? TEXT, created_at, updated_at |
-| courses | id PK, teacher_id FK users, category_id FK categories, title VARCHAR(200), description TEXT, thumbnail_url?, thumbnail_storage_key?, price NUMERIC CHECK ≥0 DEFAULT 0, is_published BOOLEAN DEFAULT false, archived_at?, created_at, updated_at |
+| courses | id PK, teacher_id FK users, category_id FK categories, title VARCHAR(200), description TEXT, thumbnail_url?, thumbnail_storage_key?, price DECIMAL CHECK ≥0 DEFAULT 0, is_published BOOLEAN DEFAULT false, archived_at?, created_at, updated_at |
 | course_members | course_id FK courses + student_id FK users = composite PK, enrolled_at |
 | lessons | id PK, course_id FK courses, title VARCHAR(200), video_url VARCHAR(2048), transcript_text? TEXT, order_index INT CHECK ≥0, created_at, updated_at |
 | lesson_documents | id PK, lesson_id FK lessons, uploaded_by FK users, original_name VARCHAR(255), storage_key VARCHAR(512) UNIQUE, media_type VARCHAR(100), size_bytes BIGINT CHECK >0, extracted_text? TEXT, content_hash VARCHAR(64), created_at |
-| ai_generations | id PK, lesson_id FK lessons, source_document_id? FK lesson_documents SET NULL, source_type CHECK TRANSCRIPT/DOCUMENT, generation_type CHECK QUIZ/FLASHCARD, requested_count INT CHECK 1..10, difficulty? CHECK EASY/MEDIUM/HARD, provider VARCHAR(100), model VARCHAR(100), prompt_version VARCHAR(50), source_hash VARCHAR(64), status CHECK SUCCEEDED/FAILED, candidate_json? JSONB, error_code?, created_by FK users, created_at |
+| ai_generations | id PK, lesson_id FK lessons, source_document_id? FK lesson_documents SET NULL, source_type CHECK TRANSCRIPT/DOCUMENT, generation_type CHECK QUIZ/FLASHCARD, requested_count INT CHECK 1..10, difficulty? CHECK EASY/MEDIUM/HARD, provider VARCHAR(100), model VARCHAR(100), prompt_version VARCHAR(50), source_hash VARCHAR(64), status CHECK SUCCEEDED/FAILED, candidate_json? JSON, error_code?, created_by FK users, created_at |
 | quizzes | id PK, lesson_id FK lessons, title VARCHAR(200), status CHECK DRAFT/PUBLISHED/CLOSED DEFAULT DRAFT, generation_id? FK ai_generations, created_by FK users, published_at?, closed_at?, created_at, updated_at |
 | questions | id PK, quiz_id FK quizzes, content TEXT, question_type CHECK MULTIPLE_CHOICE, explanation? TEXT, order_index INT CHECK ≥0, generated_by_ai BOOLEAN DEFAULT false, generation_id? FK ai_generations, created_at |
 | question_options | id PK, question_id FK questions, content TEXT, is_correct BOOLEAN, order_index INT CHECK ≥0 |
-| quiz_attempts | id PK, quiz_id FK quizzes, student_id FK users, status CHECK IN_PROGRESS/SUBMITTED, score? NUMERIC CHECK 0..100, total_questions INT CHECK >0, correct_count? INT CHECK 0..total_questions, started_at, submitted_at?, version BIGINT DEFAULT 0 |
+| quiz_attempts | id PK, quiz_id FK quizzes, student_id FK users, status CHECK IN_PROGRESS/SUBMITTED, score? DECIMAL CHECK 0..100, total_questions INT CHECK >0, correct_count? INT CHECK 0..total_questions, started_at, submitted_at?, version BIGINT DEFAULT 0 |
 | student_answers | id PK, attempt_id FK quiz_attempts, question_id FK questions, selected_option_id? FK question_options, is_correct BOOLEAN |
 | flashcards | id PK, lesson_id FK lessons, front_text TEXT, back_text TEXT, status CHECK DRAFT/PUBLISHED/CLOSED DEFAULT DRAFT, generated_by_ai BOOLEAN DEFAULT false, generation_id? FK ai_generations, created_by FK users, published_at?, closed_at?, created_at, updated_at |
 
 ## Ràng buộc và chỉ mục
 
 - Email lưu normalized lowercase; UNIQUE thực tế dùng cùng quy tắc register/login/import.
-- Một Teacher request PENDING/user: partial unique index; decision field phải phù hợp status, không tự approve mình.
+- MySQL không có partial/filtered index. Ràng buộc "duy nhất khi ở trạng thái X" làm bằng generated column trả NULL ngoài trạng thái X kèm UNIQUE (UNIQUE cho phép nhiều NULL), và service vẫn kiểm tra trong transaction.
+- Một Teacher request PENDING/user: unique có điều kiện (generated column như trên); decision field phải phù hợp status, không tự approve mình.
 - auth_sessions index user_id; private request kiểm tra revoked_at/expiry và user active.
 - lessons UNIQUE(course_id, order_index); questions UNIQUE(quiz_id, order_index); options UNIQUE(question_id, order_index). Reorder cần transaction và chiến lược tránh trùng tạm thời, chốt khi viết migration.
-- Partial unique option đúng theo question_id: ngăn >1 đáp án đúng; ≥2 option và đúng 1 khi publish kiểm tra ở service/transaction. DB CHECK đơn hàng không bảo đảm số option trên các row; nếu cần trigger cho môn CSDL phải viết và kiểm thử riêng.
-- Partial unique attempt IN_PROGRESS theo (quiz_id, student_id); UNIQUE(attempt_id, question_id) cho answers.
+- Unique có điều kiện option đúng theo question_id (generated column như trên): ngăn >1 đáp án đúng; ≥2 option và đúng 1 khi publish kiểm tra ở service/transaction. DB CHECK đơn hàng không bảo đảm số option trên các row; nếu cần trigger cho môn CSDL phải viết và kiểm thử riêng.
+- Unique có điều kiện attempt IN_PROGRESS theo (quiz_id, student_id) (generated column như trên); UNIQUE(attempt_id, question_id) cho answers.
 - SUBMITTED bắt buộc submitted_at/score/correct_count; IN_PROGRESS các field này null. Bỏ trống answer option=null và is_correct=false.
 - Option phải thuộc question; question phải thuộc quiz của attempt. Service kiểm tra cùng transaction; khi viết SQL cần composite FK/trigger tương ứng để chống dữ liệu sai ngoài service. FK đơn không đủ bảo đảm quan hệ này.
 - Published quiz/card bất biến được application bảo vệ; DB trigger là quyết định riêng, không tuyên bố đã có trong khung.

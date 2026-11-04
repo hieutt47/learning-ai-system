@@ -5,7 +5,7 @@ Chưa có Docker/Compose, CI YAML, deployment hay cloud resource. Tạo cấu h�
 | Cấu hình dự kiến | Ý nghĩa | Secret |
 |---|---|---|
 | APP_ENV, PORT | Profile/port backend | Không |
-| DATABASE_HOST/PORT/NAME/USER/PASSWORD | PostgreSQL; map theo từng framework | Password |
+| DATABASE_HOST/PORT/NAME/USER/PASSWORD | MySQL; map theo từng framework | Password |
 | JWT_SIGNING_KEY, ACCESS_TTL, REFRESH_TTL | Auth/session config | Signing key |
 | FRONTEND_ORIGIN, API_BASE_URL | CORS allowlist/backend endpoint | Không |
 | STORAGE_ROOT, MAX_DOCUMENT_BYTES, MAX_IMAGE_BYTES | File adapter và giới hạn | Không |

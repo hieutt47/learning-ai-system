@@ -6,7 +6,7 @@
 |---|---|---|
 | Spring Controller + DTO | FastAPI router + Pydantic | Route, field, error, HTTP status |
 | Application service + domain rules | Service + domain rules | Use case, validation, transaction boundary |
-| Repository port + JPA adapter | Repository port + SQLAlchemy adapter | Query semantics, constraint, PostgreSQL schema |
+| Repository port + JPA adapter | Repository port + SQLAlchemy adapter | Query semantics, constraint, MySQL schema |
 | Spring Security/JWT | Auth dependency/JWT adapter | Role, session, ownership, token semantics |
 | AI/storage adapters | AI/storage adapters | Candidate schema, provenance, file access |
 | Java checks | Python checks | Fixtures và acceptance scenarios chung |

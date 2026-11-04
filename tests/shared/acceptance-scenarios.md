@@ -40,4 +40,4 @@
 | T34 | UI-01 | Teacher → student → result → statistics | Luồng hoàn chỉnh, loading/error/empty hợp lý |
 | T35 | Portability | Chạy T01–T34 Java/Python trên fixture tương đương | Cùng contract/business outcome |
 
-Mỗi lần chạy ghi backend, version, fixture, pass/fail và evidence trong báo cáo riêng. Không đổi expected chỉ để khớp implementation; đổi nghiệp vụ phải lead review. Race/rollback cần integration test PostgreSQL thực khi code có transaction; không thể xác nhận bằng tài liệu hiện tại.
+Mỗi lần chạy ghi backend, version, fixture, pass/fail và evidence trong báo cáo riêng. Không đổi expected chỉ để khớp implementation; đổi nghiệp vụ phải lead review. Race/rollback cần integration test MySQL thực khi code có transaction; không thể xác nhận bằng tài liệu hiện tại.

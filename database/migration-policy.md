@@ -1,10 +1,10 @@
 # Migration, seed và truy vấn
 
-Một nguồn SQL PostgreSQL trong `database/migrations/`; tên dự kiến `0001_initial.sql`, `0002_...sql`. Chưa tạo file SQL rỗng giả đã có schema. Khi triển khai, chọn runner hỗ trợ Java trước và Python sau dùng **cùng file và bảng lịch sử migration**. Nếu runner khác, phải xác minh lịch sử tương thích, không để hai runner apply lại.
+Một nguồn SQL MySQL trong `database/migrations/`, đặt tên theo Flyway: `V1__initial_schema.sql`, `V2__...sql`. Java build copy thư mục này vào classpath `db/migration` (xem `java-backend/pom.xml`). Python dùng **cùng file và bảng lịch sử migration** (`flyway_schema_history`), không chạy runner thứ hai. Nếu runner khác, phải xác minh lịch sử tương thích, không để hai runner apply lại.
 
 Không dùng JPA ddl-auto=create/update ở môi trường nhóm; ORM validate schema. Không để SQLAlchemy create_all hoặc Alembic tạo schema song song. Áp migration một lần trước app startup; version/checksum có tracking; migration đã áp không sửa lại.
 
-Thay đổi: ghi ADR nếu phá tương thích → cập nhật từ điển/ERD/contract → SQL migration → dữ liệu/ORM hai phía → kiểm tra DB mới và DB đã có dữ liệu. Với SQLite/H2 không thể chứng minh partial index/transaction giống PostgreSQL; kiểm tra DB thật cho các invariant liên quan.
+Thay đổi: ghi ADR nếu phá tương thích → cập nhật từ điển/ERD/contract → SQL migration → dữ liệu/ORM hai phía → kiểm tra DB mới và DB đã có dữ liệu. Với SQLite/H2 không thể chứng minh ENUM/CHECK/unique có điều kiện/transaction giống MySQL; kiểm tra trên MySQL thật cho các invariant liên quan.
 
 Seed tách dev/demo/test. Fixtures có admin, 2 teacher, 2 student, teacher request, khóa free Published, khóa Draft, khóa archived, quiz Draft/Published/Closed, flashcard Draft/Published, attempt Submitted và bỏ trống. Password demo lấy từ cấu hình/test fixture, hash hợp lệ; không tái sử dụng mật khẩu thật. Không reset DB có dữ liệu nhóm khi chưa xác định đó là DB test.
 

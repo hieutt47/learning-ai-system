@@ -1,6 +1,6 @@
 # Backend Python — triển khai sau
 
-Stack theo README: FastAPI, Pydantic, SQLAlchemy và PostgreSQL. Chưa có main.py, __init__.py, pyproject/requirements, dependency hay runtime. Thư mục là khung để giữ thiết kế tương ứng Java.
+Stack: FastAPI, Pydantic, SQLAlchemy và MySQL (driver chốt ở giai đoạn Python, ví dụ PyMySQL). Chưa có main.py, __init__.py, pyproject/requirements, dependency hay runtime. Thư mục là khung để giữ thiết kế tương ứng Java.
 
 `app/modules/<module>/` có `api/` (router/Pydantic request/response), `application/` (services/ports), `domain/` (rules), `infrastructure/` (SQLAlchemy/repository/integration adapters). `app/shared/` dành config/auth/error/DB connection tối thiểu; `tests/` dành Python unit/integration.
 
