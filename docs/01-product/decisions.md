@@ -6,7 +6,7 @@
 | D02 | Backend/DB | Spring Boot/JPA → FastAPI/SQLAlchemy; MySQL | README |
 | D03 | Kiến trúc | Modular monolith, module tương ứng hai ngôn ngữ | Đề xuất |
 | D04 | API | `/api/v1`, snake_case, ID string | Đề xuất |
-| D05 | Migration | SQL PostgreSQL dùng chung là nguồn chuẩn | Đề xuất |
+| D05 | Migration | SQL MySQL dùng chung là nguồn chuẩn (Flyway `V<n>__*.sql`) | Đề xuất |
 | D06 | Frontend | Một giao diện chung; framework chưa chọn | Cần chốt |
 | D07 | Flashcard | MVP sinh, sửa, duyệt, publish, xem | Cần chốt |
 | D08 | Giá | Draft có price; chỉ publish khóa miễn phí | Đề xuất |

@@ -8,7 +8,7 @@ flowchart TD
   HTTP --> APP[Application services]
   APP --> DOMAIN[Domain rules]
   APP --> PORT[Repository / AI / Storage ports]
-  PORT --> DB[(PostgreSQL)]
+  PORT --> DB[(MySQL)]
   PORT --> LLM[LLM provider]
   PORT --> FILE[Document storage]
   UI --> YT[YouTube embed]
