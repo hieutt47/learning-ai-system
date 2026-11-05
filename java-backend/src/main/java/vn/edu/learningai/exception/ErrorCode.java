@@ -32,6 +32,9 @@ public enum ErrorCode {
 
     FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "Uploaded file is too large"),
     UNSUPPORTED_FILE_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported file type"),
+    AI_OUTPUT_INVALID(HttpStatus.BAD_GATEWAY, "AI output is invalid"),
+    AI_PROVIDER_ERROR(HttpStatus.BAD_GATEWAY, "AI provider error"),
+    AI_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "AI provider timed out"),
     SOURCE_TEXT_EMPTY(HttpStatus.UNPROCESSABLE_ENTITY, "Source text is empty"),
 
     STORAGE_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Could not store or read the file"),
