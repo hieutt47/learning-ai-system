@@ -20,7 +20,7 @@ Candidate flashcard:
 {"flashcards":[{"front_text":"JVM là gì?","back_text":"Máy ảo thực thi bytecode Java."}]}
 ```
 
-API trả wrapper `{generation_id, lesson_id, candidate}`; server ghi provenance. Provider response phải đúng object/type/required fields, không null hay content rỗng, đúng count, không trùng câu sau normalize, không quá length/option giới hạn; đúng một is_correct=true/câu. Từ chối field lạ và output markdown không parse được; không silently lưu bản lỗi. Structured output nếu provider hỗ trợ là adapter detail, không thay contract.
+API trả wrapper `{generation_id, lesson_id, source_truncated, candidate}`; server ghi provenance. `source_truncated` (boolean, bổ sung) = true khi nguồn dài hơn giới hạn (20.000 ký tự) và AI chỉ nhận phần đầu; UI nên báo cho giáo viên. Provider response phải đúng object/type/required fields, không null hay content rỗng, đúng count, không trùng câu sau normalize, không quá length/option giới hạn; đúng một is_correct=true/câu. Từ chối field lạ và output markdown không parse được; không silently lưu bản lỗi. Structured output nếu provider hỗ trợ là adapter detail, không thay contract.
 
 LLM call ngoài transaction; text length/token budget hữu hạn; timeout cấu hình; retry thủ công MVP. Không trả stack trace/prompt secret. Mock adapter cung cấp candidate cùng cấu trúc để demo offline. Tài liệu nguồn gửi provider cần được nhóm chấp thuận trước tích hợp thật.
 

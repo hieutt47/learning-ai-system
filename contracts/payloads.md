@@ -22,7 +22,7 @@ Field dưới đây là thiết kế; khi viết OpenAPI phải khai báo requir
 | QuizSummary | Không ghi | id, lesson_id, title, status, question_count |
 | Status | status=PUBLISHED hoặc CLOSED | QuizAuthor/Card; transition được kiểm tra |
 | CardWrite | front_text, back_text, generation_id nullable | Card: id, lesson_id, front_text, back_text, status, generated_by_ai, created_at |
-| GenerationRequest | lesson_id, source_type=TRANSCRIPT hoặc DOCUMENT, document_id nếu DOCUMENT, count, difficulty cho QUIZ | Candidate + generation_id; xem ai-output.md |
+| GenerationRequest | lesson_id, source_type=TRANSCRIPT hoặc DOCUMENT, document_id nếu DOCUMENT, count, difficulty cho QUIZ | generation_id, lesson_id, source_truncated, candidate; xem ai-output.md |
 | Attempt | Không ghi trực tiếp | id, quiz_id, student_id, status, started_at; IN_PROGRESS không có review/đáp án |
 | Submit | answers[{question_id,selected_option_id nullable}] | Result |
 | Result | Không ghi | Attempt + score, total_questions, correct_count, submitted_at, review[{question_id,selected_option_id,is_correct,correct_option_id,explanation}] |
