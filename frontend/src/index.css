@@ -1,0 +1,14 @@
+@import './shared/styles/tokens.css';
+@import './shared/styles/shell.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
