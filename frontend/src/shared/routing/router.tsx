@@ -1,3 +1,7 @@
+import { LessonEditorPage } from '../../features/teaching/lessons/LessonEditorPage'
+import { LearningDocumentsPage } from '../../features/learning/LearningDocumentsPage'
+import { LearningLessonLayout } from '../../features/learning/LearningLessonLayout'
+import { CourseLessonsPage } from '../../features/teaching/lessons/CourseLessonsPage'
 import { createBrowserRouter, type Params, type RouteObject } from 'react-router'
 import { setUnauthorizedHandler } from '../api/client'
 import { AppLayout } from '../components/AppLayout'
@@ -93,9 +97,10 @@ export const router = createBrowserRouter([
           {
             // Học bài: người 3 dựng phần chung (video, danh sách bài) làm element của route cha, có <Outlet /> cho tab
             path: '/learn/:courseId/lessons/:lessonId',
+            element: <LearningLessonLayout />,
             handle: { title: 'Học bài', tabs: learnTabs } satisfies RouteHandle,
             children: [
-              { index: true, ...todo('learnDocs') },
+              { index: true, element: <LearningDocumentsPage /> },
               { path: 'quiz', ...todo('learnQuiz') },
               { path: 'flashcards', ...todo('learnFlashcards') },
             ],
@@ -117,7 +122,11 @@ export const router = createBrowserRouter([
             handle: { title: 'Khóa học', tabs: courseTabs } satisfies RouteHandle,
             children: [
               { index: true, ...todo('courseInfo') },
-              { path: 'lessons', ...todo('courseLessons') },
+              {
+                path: 'lessons',
+                element: <CourseLessonsPage />,
+                handle: { title: 'Khóa học · Bài học' } satisfies RouteHandle,
+              },
               { path: 'students', ...todo('courseStudents') },
             ],
           },
@@ -126,7 +135,7 @@ export const router = createBrowserRouter([
             path: '/teaching/lessons/:lessonId',
             handle: { title: 'Soạn bài học', tabs: lessonTabs } satisfies RouteHandle,
             children: [
-              { index: true, ...todo('lessonContent') },
+              { index: true, element: <LessonEditorPage /> },
               { path: 'quizzes', ...todo('lessonQuizzes') },
               { path: 'ai', ...todo('lessonAi') },
               { path: 'ai/preview', ...todo('aiPreview') },

@@ -20,4 +20,12 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: true
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+
+app:
+  storage:
+    lesson-documents: ${LESSON_DOCUMENT_STORAGE:./data/lesson-documents}
 
