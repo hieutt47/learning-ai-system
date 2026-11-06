@@ -5,9 +5,9 @@
 | ID | Requirement | Given/When | Expected |
 |---|---|---|---|
 | T01 | AUTH-01 | Đăng ký hợp lệ | 201, STUDENT, không có hash/token thừa |
-| T02 | AUTH-01 | Email chỉ khác hoa/thường; client gửi ADMIN | Duplicate 409; role tự gửi 400 |
-| T03 | AUTH-01 | Login sai mật khẩu, access hết hạn, refresh rotate | 401; refresh đúng cấp cặp mới, token cũ vô hiệu |
-| T04 | AUTH-01 | Logout rồi gọi API; logout lần hai | Phiên bị chặn; logout retry 204 |
+| T02 | AUTH-01 | Email chỉ khác hoa/thường; đăng ký hợp lệ có thêm role=ADMIN | Email trùng sau chuẩn hóa trả 409; request hợp lệ có role=ADMIN trả 201, role tự gửi bị bỏ qua và tài khoản được tạo là STUDENT |
+| T03 | AUTH-01 | Login sai mật khẩu, gọi private API bằng access hết hạn, refresh không gửi Authorization để rotate và gia hạn, refresh session hết hạn | 401 khi sai mật khẩu/access hết hạn trên private API; login tạo refresh session hạn 7 ngày; refresh đúng trả access_token và Set-Cookie refreshToken mới với Max-Age=604800, expires_at = thời điểm refresh + 7 ngày; refresh token cũ hoặc session hết hạn bị từ chối 401, không gia hạn |
+| T04 | AUTH-01 | Logout/refresh không gửi Authorization; gọi private API bằng access token cũ; logout lần hai hoặc thiếu cookie; logout/refresh gửi kèm Bearer token hợp lệ, còn hạn của user bị khóa | Không gửi Authorization: logout thu hồi refresh session nếu tìm thấy, xóa cookie và trả 204, kể cả khi thiếu cookie hoặc retry; refresh bằng token đã thu hồi trả 401; access token cũ còn dùng được trước exp nếu user active và đủ quyền, hết hạn trả 401. Gửi kèm Bearer token của user bị khóa: trả 403 ACCOUNT_INACTIVE trước khi xử lý endpoint; logout không thu hồi session hoặc xóa cookie |
 | T05 | AUTH-02 | Admin khóa user đang login | Private/refresh bị chặn, không giữ quyền cũ |
 | T06 | USER-01 | Student request; admin approve; student tự approve | Role cập nhật transaction; tự approve 403 |
 | T07 | CAT-01 | CRUD category; xóa category có course | Admin đúng; delete liên quan 409 |

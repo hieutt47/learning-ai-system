@@ -2,7 +2,6 @@ package vn.edu.learningai.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import lombok.AllArgsConstructor;
@@ -25,7 +24,7 @@ public class RegisterRequest {
     private String email;
 
     @NotBlank(message = "Password must not be blank")
-    @Size(min = 8, message = "Password must contain at least 8 characters")
+    @Size(min = 10, max = 72, message = "Password must contain between 10 and 72 characters")
     private String password;
 
 }

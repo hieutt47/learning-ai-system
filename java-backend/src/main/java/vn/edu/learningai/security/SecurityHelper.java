@@ -1,6 +1,7 @@
 package vn.edu.learningai.security;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import vn.edu.learningai.entity.User;
@@ -15,11 +16,19 @@ public class SecurityHelper {
     private final UserRepository userRepository;
 
     public User getCurrentUser() {
-        CustomUserDetails userDetails = (CustomUserDetails)
-            SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+            || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)
+            || userDetails.getId() == null) {
+            throw new ApiException(ErrorCode.UNAUTHENTICATED);
+        }
+
         User user = userRepository
             .findById(userDetails.getId())
-            .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
+            .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED));
+        if (!Boolean.TRUE.equals(user.getIsActive())) {
+            throw new ApiException(ErrorCode.ACCOUNT_INACTIVE);
+        }
         return user;
     }
 }

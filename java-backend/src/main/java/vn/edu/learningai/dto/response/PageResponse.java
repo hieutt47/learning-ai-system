@@ -19,7 +19,7 @@ public class PageResponse<T> {
     public static <T> PageResponse<T> from(Page<T> result) {
         return PageResponse.<T>builder()
             .items(result.getContent())
-            .page(result.getNumber())
+            .page(result.getNumber() + 1)
             .pageSize(result.getSize())
             .total(result.getTotalElements())
             .build();

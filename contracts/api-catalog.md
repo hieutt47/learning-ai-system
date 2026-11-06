@@ -4,12 +4,12 @@ Mọi route có prefix `/api/v1`. A=ADMIN, T=TEACHER, S=STUDENT, U=user active �
 
 | Nhóm | Method/path | Quyền | Payload / response |
 |---|---|---|---|
-| AUTH-01 | POST /auth/register | Public | Register → User (201) |
-| AUTH-01 | POST /auth/login | Public | Login → TokenPair |
-| AUTH-01 | POST /auth/refresh | Refresh credential | Refresh → TokenPair |
-| AUTH-01 | POST /auth/logout | Session credential | Logout → 204; retry 204 |
+| AUTH-01 | POST /auth/register | Public | Register → User (201); không yêu cầu header Location |
+| AUTH-01 | POST /auth/login | Public | Login → AuthResponse (200); Set-Cookie: refreshToken |
+| AUTH-01 | POST /auth/refresh | Cookie refreshToken; không gửi Authorization | Không body → AuthResponse (200); Set-Cookie: refreshToken mới |
+| AUTH-01 | POST /auth/logout | Cookie refreshToken nếu có; không gửi Authorization | Không body → 204; xóa cookie; retry 204 |
 | AUTH-02 | GET /users/me | U | User |
-| AUTH-02 | PATCH /users/me | U | Profile → User; không nhận role/status |
+| AUTH-02 | PATCH /users/me | U | Profile → User (200); full_name bắt buộc, không null/rỗng/chỉ có khoảng trắng, tối đa 120 ký tự; thiếu hoặc không hợp lệ trả 400; chỉ cập nhật tên |
 | AUTH-02 | GET /users | A | Page<User> |
 | AUTH-02 | PATCH /users/{user_id}/status | A | UserStatus → User |
 | USER-01 | POST /teacher-requests | S | TeacherRequest → Request (201) |
@@ -66,4 +66,4 @@ Mọi route có prefix `/api/v1`. A=ADMIN, T=TEACHER, S=STUDENT, U=user active �
 | STAT-01 | GET /statistics/quizzes/{quiz_id} | O | QuizStatistics |
 | STAT-01 | GET /statistics/system | A | SystemStatistics |
 
-Public detail draft trả 404; owner đọc qua teaching route. Các route có lesson/quiz/document/question/card ID phải lần ra course và kiểm tra owner/enrollment, không chỉ kiểm tra role. Logout chấp nhận refresh credential nếu access hết hạn; xác minh token và thu hồi cùng session, không yêu cầu access còn sống. Không có endpoint đổi role trực tiếp hoặc mua khóa trong MVP.
+Public detail draft trả 404; owner đọc qua teaching route. Các route có lesson/quiz/document/question/card ID phải lần ra course và kiểm tra owner/enrollment, không chỉ kiểm tra role. Refresh/logout đọc refresh token từ cookie refreshToken, không yêu cầu access token; frontend không gửi header Authorization. Khi gọi theo cách này, logout thu hồi session tương ứng nếu tìm thấy và xóa cookie; thiếu cookie hoặc session không còn tồn tại vẫn trả 204. Nếu gửi kèm Bearer token hợp lệ, còn hạn của tài khoản bị khóa, refresh/logout trả 403 ACCOUNT_INACTIVE; logout không thu hồi session hoặc xóa cookie trong trường hợp này. Không có endpoint đổi role trực tiếp hoặc mua khóa trong MVP.

@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
@@ -23,11 +24,13 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
     public void commence(
         HttpServletRequest request, HttpServletResponse response, AuthenticationException authException)
         throws IOException, ServletException {
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        ErrorCode errorCode = authException instanceof DisabledException
+            ? ErrorCode.ACCOUNT_INACTIVE : ErrorCode.UNAUTHENTICATED;
+        response.setStatus(errorCode.getStatus().value());
         response.setContentType("application/json;charset=UTF-8");
 
         ErrorResponse errorResponse = ErrorResponse
-            .from(ErrorCode.UNAUTHORIZED.name(), ErrorCode.UNAUTHORIZED.getDefaultMessage());
+            .from(errorCode.name(), errorCode.getDefaultMessage());
 
         response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
     }

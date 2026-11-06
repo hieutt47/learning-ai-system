@@ -11,18 +11,14 @@ public enum ErrorCode {
 
     ACCOUNT_INACTIVE(HttpStatus.FORBIDDEN, "Account is inactive"),
 
-    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
+    UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "Authentication required or credentials are invalid"),
     FORBIDDEN(HttpStatus.FORBIDDEN, "Forbidden"),
+    NOT_FOUND(HttpStatus.NOT_FOUND, "Resource not found"),
 
     UNCATEGORIZED_EXCEPTION(HttpStatus.INTERNAL_SERVER_ERROR, "Uncategorized error"),
 
     USER_NOT_FOUND(HttpStatus.BAD_REQUEST, "User not found"),
-    USER_EXISTED(HttpStatus.BAD_REQUEST, "User existed"),
-    USER_INACTIVE(HttpStatus.FORBIDDEN, "User is inactive"),
-
-    REFRESH_TOKEN_NOT_FOUND(HttpStatus.BAD_REQUEST, "Refresh token not found"),
-
-    REFRESH_TOKEN_IS_NULL(HttpStatus.BAD_REQUEST, "Refresh token is null");
+    EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "Email already exists");
 
     private final HttpStatus status;
     private final String defaultMessage;

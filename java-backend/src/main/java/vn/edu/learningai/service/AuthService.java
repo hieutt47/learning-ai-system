@@ -14,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.edu.learningai.common.enums.UserRole;
 import vn.edu.learningai.dto.request.LoginRequest;
 import vn.edu.learningai.dto.request.RegisterRequest;
-import vn.edu.learningai.dto.response.AuthResponse;
 import vn.edu.learningai.dto.response.UserResponse;
 import vn.edu.learningai.entity.User;
 import vn.edu.learningai.exception.ApiException;
@@ -25,7 +24,7 @@ import vn.edu.learningai.security.custom.CustomUserDetails;
 import vn.edu.learningai.security.jwt.JwtService;
 import vn.edu.learningai.security.service.RefreshTokenService;
 
-import java.time.Instant;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -46,8 +45,9 @@ public class AuthService {
     }
 
     public AuthTokenResult login(LoginRequest request) {
+        String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
         Authentication authentication = authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+            new UsernamePasswordAuthenticationToken(email, request.getPassword()));
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 
@@ -65,6 +65,7 @@ public class AuthService {
     public UserResponse register(RegisterRequest request) {
         User user = userMapper.toUser(request);
 
+        user.setEmail(request.getEmail().trim().toLowerCase(Locale.ROOT));
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setRole(UserRole.STUDENT);
         user.setIsActive(true);
@@ -73,22 +74,22 @@ public class AuthService {
         try {
             return userMapper.toUserResponse(userRepository.save(user));
         } catch (DataIntegrityViolationException e) {
-            throw new ApiException(ErrorCode.USER_EXISTED);
+            throw new ApiException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
     }
 
     @Transactional
     public AuthTokenResult refreshToken(String refreshToken) {
-        if (refreshToken == null || refreshToken.isBlank()) throw new ApiException(ErrorCode.REFRESH_TOKEN_NOT_FOUND);
+        if (refreshToken == null || refreshToken.isBlank()) throw new ApiException(ErrorCode.UNAUTHENTICATED);
 
         RefreshTokenService.RefreshTokenResult refreshTokenResul = refreshTokenService.rotateRefreshToken(refreshToken);
 
         User user = userRepository.findById(refreshTokenResul.getUserId())
-            .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
+            .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED));
 
         CustomUserDetails userDetails = CustomUserDetails.build(user);
 
-        if (!userDetails.isEnabled()) throw new ApiException(ErrorCode.USER_INACTIVE);
+        if (!userDetails.isEnabled()) throw new ApiException(ErrorCode.ACCOUNT_INACTIVE);
 
         String newAccessToken = jwtService.generateToken(userDetails);
         String newRefreshToken = refreshTokenResul.getRefreshToken();

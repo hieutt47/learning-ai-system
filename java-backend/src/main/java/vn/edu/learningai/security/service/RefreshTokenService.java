@@ -50,9 +50,9 @@ public class RefreshTokenService {
 
     public RefreshTokenResult createRefreshToken(Long userId) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
+            .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED));
         if (!Boolean.TRUE.equals(user.getIsActive())) {
-            throw new ApiException(ErrorCode.UNAUTHORIZED);
+            throw new ApiException(ErrorCode.ACCOUNT_INACTIVE);
         }
 
         Instant expiresAt = Instant.now().plusMillis(refreshTTL);
@@ -75,17 +75,19 @@ public class RefreshTokenService {
 
     public RefreshTokenResult rotateRefreshToken(String token) {
         if(token == null || token.isBlank())
-            throw new ApiException(ErrorCode.UNAUTHORIZED);
+            throw new ApiException(ErrorCode.UNAUTHENTICATED);
 
         String tokenHash = hash(token);
 
         AuthSession session = sessionRepository.findByRefreshTokenHash(tokenHash)
-            .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED));
+            .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED));
 
         Instant now = Instant.now();
-        if (session.getRevokedAt() != null || !session.getExpiresAt().isAfter(now)
-            || !Boolean.TRUE.equals(session.getUser().getIsActive())) {
-            throw new ApiException(ErrorCode.UNAUTHORIZED);
+        if (session.getRevokedAt() != null || !session.getExpiresAt().isAfter(now)) {
+            throw new ApiException(ErrorCode.UNAUTHENTICATED);
+        }
+        if (!Boolean.TRUE.equals(session.getUser().getIsActive())) {
+            throw new ApiException(ErrorCode.ACCOUNT_INACTIVE);
         }
 
         Instant expiresAt = Instant.now().plusMillis(refreshTTL);
