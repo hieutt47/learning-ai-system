@@ -17,17 +17,17 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
 
     long countByCourseId(Long courseId);
 
-    @Query(value = "SELECT COUNT(*) > 0 FROM courses WHERE id = :courseId AND teacher_id = :userId", nativeQuery = true)
-    boolean isCourseOwner(Long courseId, Long userId);
+    @Query(value = "SELECT COUNT(*) FROM courses WHERE id = :courseId AND teacher_id = :userId", nativeQuery = true)
+    long countCourseOwner(Long courseId, Long userId);
 
-    @Query(value = "SELECT COUNT(*) > 0 FROM course_members WHERE course_id = :courseId AND student_id = :userId", nativeQuery = true)
-    boolean isCourseMember(Long courseId, Long userId);
+    @Query(value = "SELECT COUNT(*) FROM course_members WHERE course_id = :courseId AND student_id = :userId", nativeQuery = true)
+    long countCourseMember(Long courseId, Long userId);
 
-    @Query(value = "SELECT COUNT(*) > 0 FROM courses WHERE id = :courseId", nativeQuery = true)
-    boolean courseExists(Long courseId);
+    @Query(value = "SELECT COUNT(*) FROM courses WHERE id = :courseId", nativeQuery = true)
+    long countCourse(Long courseId);
 
-    @Query(value = "SELECT COUNT(*) > 0 FROM quiz_attempts a JOIN quizzes q ON q.id = a.quiz_id WHERE q.lesson_id = :lessonId", nativeQuery = true)
-    boolean hasQuizAttempts(Long lessonId);
+    @Query(value = "SELECT COUNT(*) FROM quiz_attempts a JOIN quizzes q ON q.id = a.quiz_id WHERE q.lesson_id = :lessonId", nativeQuery = true)
+    long countQuizAttempts(Long lessonId);
 
     @Query(value = "SELECT COUNT(*) FROM quizzes WHERE lesson_id = :lessonId", nativeQuery = true)
     long countQuizzes(Long lessonId);

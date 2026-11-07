@@ -69,8 +69,8 @@ class LessonServiceTest {
     void enrolledStudentCanViewLesson() {
         when(lessonRepository.findById(10L)).thenReturn(Optional.of(lesson("transcript")));
         when(userRepository.findById(7L)).thenReturn(Optional.of(user(UserRole.STUDENT)));
-        when(lessonRepository.isCourseOwner(20L, 7L)).thenReturn(false);
-        when(lessonRepository.isCourseMember(20L, 7L)).thenReturn(true);
+        when(lessonRepository.countCourseOwner(20L, 7L)).thenReturn(0L);
+        when(lessonRepository.countCourseMember(20L, 7L)).thenReturn(1L);
 
         assertEquals(LessonAccessPolicy.LessonViewAccess.ENROLLED_STUDENT,
             service.assertCanViewLesson(10L, 7L));
@@ -85,6 +85,17 @@ class LessonServiceTest {
             () -> service.assertCanViewLesson(10L, 7L));
 
         assertEquals(ErrorCode.ENROLLMENT_REQUIRED, exception.getErrorCode());
+    }
+
+    @Test
+    void unrelatedTeacherGetsForbiddenInsteadOfEnrollmentError() {
+        when(lessonRepository.findById(10L)).thenReturn(Optional.of(lesson("transcript")));
+        when(userRepository.findById(7L)).thenReturn(Optional.of(user(UserRole.TEACHER)));
+
+        ApiException exception = assertThrows(ApiException.class,
+            () -> service.assertCanViewLesson(10L, 7L));
+
+        assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
     }
 
     private Lesson lesson(String transcript) {

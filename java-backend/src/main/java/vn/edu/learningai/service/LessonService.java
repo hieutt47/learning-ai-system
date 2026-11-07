@@ -102,7 +102,7 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
     @Transactional
     public void delete(Long lessonId, Long userId) {
         Lesson lesson = requireManage(lessonId, userId);
-        if (lessonRepository.hasQuizAttempts(lessonId)) {
+        if (lessonRepository.countQuizAttempts(lessonId) > 0) {
             throw new ApiException(ErrorCode.LESSON_DELETE_BLOCKED);
         }
         if (lessonRepository.countQuizzes(lessonId) > 0 || lessonRepository.countFlashcards(lessonId) > 0) {
@@ -171,13 +171,14 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
     @Transactional(readOnly = true)
     public LessonViewAccess assertCanViewLesson(Long lessonId, Long userId) {
         Lesson lesson = requireLesson(lessonId);
-        if (isAdmin(userId) || lessonRepository.isCourseOwner(lesson.getCourseId(), userId)) {
+        UserRole role = currentUserRole(userId);
+        if (role == UserRole.ADMIN || lessonRepository.countCourseOwner(lesson.getCourseId(), userId) > 0) {
             return LessonViewAccess.MANAGER;
         }
-        if (lessonRepository.isCourseMember(lesson.getCourseId(), userId)) {
+        if (role == UserRole.STUDENT && lessonRepository.countCourseMember(lesson.getCourseId(), userId) > 0) {
             return LessonViewAccess.ENROLLED_STUDENT;
         }
-        throw new ApiException(ErrorCode.ENROLLMENT_REQUIRED);
+        throw new ApiException(role == UserRole.STUDENT ? ErrorCode.ENROLLMENT_REQUIRED : ErrorCode.FORBIDDEN);
     }
 
     @Override
@@ -205,34 +206,43 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
 
     private Lesson requireManage(Long lessonId, Long userId) {
         Lesson lesson = requireLesson(lessonId);
-        if (!isAdmin(userId) && !lessonRepository.isCourseOwner(lesson.getCourseId(), userId)) {
+        if (!isAdmin(userId) && lessonRepository.countCourseOwner(lesson.getCourseId(), userId) == 0) {
             throw new ApiException(ErrorCode.FORBIDDEN);
         }
         return lesson;
     }
 
     private void assertCanManageCourse(Long courseId, Long userId) {
-        if (!lessonRepository.courseExists(courseId)) {
+        if (lessonRepository.countCourse(courseId) == 0) {
             throw new ApiException(ErrorCode.NOT_FOUND, "Course not found");
         }
-        if (!isAdmin(userId) && !lessonRepository.isCourseOwner(courseId, userId)) {
+        if (!isAdmin(userId) && lessonRepository.countCourseOwner(courseId, userId) == 0) {
             throw new ApiException(ErrorCode.FORBIDDEN);
         }
     }
 
     private void assertCanViewCourse(Long courseId, Long userId) {
-        if (!lessonRepository.courseExists(courseId)) {
+        if (lessonRepository.countCourse(courseId) == 0) {
             throw new ApiException(ErrorCode.NOT_FOUND, "Course not found");
         }
-        if (!isAdmin(userId) && !lessonRepository.isCourseOwner(courseId, userId)
-            && !lessonRepository.isCourseMember(courseId, userId)) {
-            throw new ApiException(ErrorCode.ENROLLMENT_REQUIRED);
+        UserRole role = currentUserRole(userId);
+        if (role == UserRole.ADMIN || lessonRepository.countCourseOwner(courseId, userId) > 0) {
+            return;
         }
+        if (role == UserRole.STUDENT && lessonRepository.countCourseMember(courseId, userId) > 0) {
+            return;
+        }
+        throw new ApiException(role == UserRole.STUDENT ? ErrorCode.ENROLLMENT_REQUIRED : ErrorCode.FORBIDDEN);
     }
 
     private boolean isAdmin(Long userId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED));
-        return user.getRole() == UserRole.ADMIN;
+        return currentUserRole(userId) == UserRole.ADMIN;
+    }
+
+    private UserRole currentUserRole(Long userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED));
+        return user.getRole();
     }
 
     private Lesson requireLesson(Long lessonId) {
@@ -241,7 +251,7 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
     }
 
     private LessonResponse toResponse(Lesson lesson) {
-        boolean blocked = lessonRepository.hasQuizAttempts(lesson.getId());
+        boolean blocked = lessonRepository.countQuizAttempts(lesson.getId()) > 0;
         return new LessonResponse(
             lesson.getId(), lesson.getCourseId(), lesson.getTitle(), lesson.getVideoUrl(), lesson.getTranscriptText(),
             lesson.getOrderIndex(), documentRepository.countByLessonId(lesson.getId()),
