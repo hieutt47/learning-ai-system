@@ -16,6 +16,7 @@ node_modules/
 dist/
 coverage/
 uploads/
+java-backend/data/
 *.log
 .idea/
 .vscode/

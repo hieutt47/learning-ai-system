@@ -2,6 +2,8 @@ package vn.edu.learningai.exception;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -33,6 +35,20 @@ public class GlobalExceptionHandler {
             .body(ErrorResponse.from(ErrorCode.VALIDATION_ERROR.name(), ErrorCode.VALIDATION_ERROR.getDefaultMessage()
             , fieldErrors));
 
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleUnreadableRequest(HttpMessageNotReadableException e) {
+        return ResponseEntity
+            .status(ErrorCode.VALIDATION_ERROR.getStatus())
+            .body(ErrorResponse.from(ErrorCode.VALIDATION_ERROR.name(), "Request body is invalid"));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSize(MaxUploadSizeExceededException e) {
+        return ResponseEntity
+            .status(ErrorCode.FILE_TOO_LARGE.getStatus())
+            .body(ErrorResponse.from(ErrorCode.FILE_TOO_LARGE.name(), ErrorCode.FILE_TOO_LARGE.getDefaultMessage()));
     }
 
     @ExceptionHandler(RuntimeException.class)
