@@ -187,6 +187,7 @@ Sidebar, logo, tab trong trang, menu tài khoản, chuyển về `/login?redirec
 | Thống kê khóa học (4) | "Xem chi tiết" ở một quiz | Thống kê quiz | `paths.quizStatistics(quizId)` |
 | Thống kê quiz (4) | Quay lại | Thống kê khóa học | `paths.teachingStatistics` |
 | AI & Flashcard (5) | "Sinh bản nháp" thành công | Xem trước kết quả AI | `paths.teachingLessonAiPreview(lessonId)` |
+| AI & Flashcard (5) | "Soạn thủ công" khi đang chọn Quiz | Soạn bài học · Quiz | `paths.teachingLessonQuizzes(lessonId)` |
 | Xem trước kết quả AI (5) | "Lưu thành bản nháp" — quiz | Soạn quiz (màn người 4) | `paths.quizEditor(quizId)` |
 | Xem trước kết quả AI (5) | "Lưu thành bản nháp" — flashcard; "Hủy" | AI & Flashcard | `paths.teachingLessonAi(lessonId)` |
 
