@@ -10,7 +10,7 @@
 | D06 | Frontend | Một giao diện chung (SPA): React + TypeScript + Vite; React Router, TanStack Query, Ant Design | Nhóm chốt 05/11/2026 |
 | D07 | Flashcard | MVP sinh, sửa, duyệt, publish, xem | Cần chốt |
 | D08 | Giá | Draft có price; chỉ publish khóa miễn phí | Đề xuất |
-| D09 | Auth | Access JWT + refresh session, revoke logout | Đề xuất |
+| D09 | Auth | Access JWT 15 phút + refresh session hạn trượt 7 ngày, gia hạn khi refresh thành công, chưa có hạn tuyệt đối; logout thu hồi refresh session và xóa cookie, access token còn hiệu lực đến exp nếu user active | Người dùng xác nhận 06/11/2026 |
 | D10 | Role | Một role/tài khoản, thêm teacher_requests | Đề xuất theo README |
 | D11 | Quiz/card đã publish | Bất biến; muốn sửa tạo draft mới | Đề xuất |
 | D12 | AI | Đồng bộ nội dung ngắn, timeout, adapter mock | Đề xuất |

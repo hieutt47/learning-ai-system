@@ -11,7 +11,7 @@ Chưa có Docker/Compose, CI YAML, deployment hay cloud resource. Tạo cấu h�
 | STORAGE_ROOT, MAX_DOCUMENT_BYTES, MAX_IMAGE_BYTES | File adapter và giới hạn | Không |
 | AI_PROVIDER, AI_MODEL, AI_API_KEY, AI_TIMEOUT_SECONDS | Chọn mock/live provider | API key |
 
-Chưa tạo .env.example vì key thực phụ thuộc cách bootstrap; khi tạo chỉ placeholder, không secret thật. Secret để .env hoặc secret manager, file env bị gitignore. Logs có request_id, không token/password/full transcript. DB user chỉ có quyền cần; file tải qua endpoint có authorization.
+Chưa tạo .env.example vì key thực phụ thuộc cách bootstrap; khi tạo chỉ placeholder, không secret thật. Secret để .env hoặc secret manager, file env bị gitignore. Logs không chứa token/password/full transcript. DB user chỉ có quyền cần; file tải qua endpoint có authorization.
 
 Dev/test/demo có DB riêng. Backup trước migration dữ liệu nhóm; dữ liệu demo reset có chủ đích. Health/readiness và run commands bổ sung khi app có thật. Cấu hình migration runner duy nhất trước startup.
 

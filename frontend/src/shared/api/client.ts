@@ -178,3 +178,23 @@ export const apiPatch = <T>(path: string, body?: unknown, options?: RequestOptio
 
 export const apiDelete = <T = void>(path: string, options?: RequestOptions) =>
   apiRequest<T>('DELETE', path, options)
+
+export async function apiGetBlob(path: string, options: Omit<RequestOptions, 'body'> = {}): Promise<Blob> {
+  let response: Response
+  try {
+    response = await fetch(buildUrl(path, options.query), {
+      method: 'GET',
+      headers: buildHeaders(options),
+      signal: options.signal,
+    })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error
+    throw new ApiError(0, { code: 'NETWORK_ERROR', message: 'Không kết nối được máy chủ' })
+  }
+  if (!response.ok) {
+    const apiError = await toApiError(response)
+    if (response.status === 401) unauthorizedHandler?.()
+    throw apiError
+  }
+  return response.blob()
+}
