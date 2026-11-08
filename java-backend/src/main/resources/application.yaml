@@ -7,17 +7,44 @@ spring:
     url: ${DBMS_CONNECTION}
     username: ${DBMS_USERNAME}
     password: ${DBMS_PASSWORD}
+  jackson:
+    # contracts/api-conventions.md: JSON uses snake_case on the wire.
+    property-naming-strategy: SNAKE_CASE
   data:
     web:
       pageable:
         default-page-size: 10
         max-page-size: 100
-        one-indexed-parameters: false
+        # Pageable-based routes (users, teacher requests, categories) take page>=1.
+        one-indexed-parameters: true
+        size-parameter: page_size
   flyway:
     enabled: true
     locations: classpath:db/migration
+  servlet:
+    multipart:
+      # One limit for every upload route: lesson documents need 10 MiB, so the
+      # servlet buffers up to that. Per-route caps stay in the services
+      # (ThumbnailService rejects anything over 5 MiB with its own message).
+      max-file-size: 10MB
+      max-request-size: 11MB
   jpa:
     hibernate:
       ddl-auto: validate
     show-sql: true
 
+jwt:
+  jwt-signing-key: ${JWT_SIGNING_KEY}
+  access-ttl: 900000 # ms - 15 mins
+  refresh-ttl: 604800000 # ms - 7 days
+
+app:
+  auth:
+    cookie:
+      secure: ${AUTH_COOKIE_SECURE:true}
+      same-site: Lax
+  storage:
+    # Thumbnails; gitignored (see .gitignore: uploads/).
+    location: ${APP_STORAGE_LOCATION:./uploads}
+    public-base-url: ${APP_STORAGE_PUBLIC_BASE_URL:/api/v1/files}
+    lesson-documents: ${LESSON_DOCUMENT_STORAGE:./data/lesson-documents}

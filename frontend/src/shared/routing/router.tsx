@@ -1,3 +1,14 @@
+import { LessonEditorPage } from '../../features/teaching/lessons/LessonEditorPage'
+import { LearningDocumentsPage } from '../../features/learning/LearningDocumentsPage'
+import { LearningLessonLayout } from '../../features/learning/LearningLessonLayout'
+import { CourseLessonsPage } from '../../features/teaching/lessons/CourseLessonsPage'
+import { AdminCoursesPage } from '../../features/marketplace/AdminCoursesPage'
+import { CourseDetailPage } from '../../features/marketplace/CourseDetailPage'
+import { CourseInfoPage } from '../../features/marketplace/CourseInfoPage'
+import { CourseStudentsPage } from '../../features/marketplace/CourseStudentsPage'
+import { ExplorePage } from '../../features/marketplace/ExplorePage'
+import { MyCoursesPage } from '../../features/marketplace/MyCoursesPage'
+import { TeachingCoursesPage } from '../../features/marketplace/TeachingCoursesPage'
 import { createBrowserRouter, type Params, type RouteObject } from 'react-router'
 import { setUnauthorizedHandler } from '../api/client'
 import { AppLayout } from '../components/AppLayout'
@@ -79,8 +90,12 @@ export const router = createBrowserRouter([
       ...devRoutes,
 
       // Ai cũng xem được
-      { path: paths.explore, ...todo('explore', { search: true }) },
-      { path: '/courses/:courseId', ...todo('courseDetail', { search: true }) },
+      { path: paths.explore, element: <ExplorePage />, handle: { title: 'Khám phá khóa học', search: true } satisfies RouteHandle },
+      {
+        path: '/courses/:courseId',
+        element: <CourseDetailPage />,
+        handle: { title: 'Chi tiết khóa học', search: true } satisfies RouteHandle,
+      },
 
       // Đã đăng nhập
       { element: <RequireAccess allow="auth" />, children: [{ path: paths.profile, ...todo('profile') }] },
@@ -89,13 +104,14 @@ export const router = createBrowserRouter([
       {
         element: <RequireAccess allow={['STUDENT']} />,
         children: [
-          { path: paths.myCourses, ...todo('myCourses', { search: true }) },
+          { path: paths.myCourses, element: <MyCoursesPage />, handle: { title: 'Khóa học của tôi', search: true } satisfies RouteHandle },
           {
             // Học bài: người 3 dựng phần chung (video, danh sách bài) làm element của route cha, có <Outlet /> cho tab
             path: '/learn/:courseId/lessons/:lessonId',
+            element: <LearningLessonLayout />,
             handle: { title: 'Học bài', tabs: learnTabs } satisfies RouteHandle,
             children: [
-              { index: true, ...todo('learnDocs') },
+              { index: true, element: <LearningDocumentsPage /> },
               { path: 'quiz', ...todo('learnQuiz') },
               { path: 'flashcards', ...todo('learnFlashcards') },
             ],
@@ -110,15 +126,19 @@ export const router = createBrowserRouter([
       {
         element: <RequireAccess allow={['TEACHER']} />,
         children: [
-          { path: paths.teachingCourses, ...todo('teachingCourses') },
+          { path: paths.teachingCourses, element: <TeachingCoursesPage />, handle: { title: 'Khóa học giảng dạy' } satisfies RouteHandle },
           {
             // Khóa học: người 2 đặt tên khóa học + breadcrumb (usePageHeader) và nút thao tác
             path: '/teaching/courses/:courseId',
             handle: { title: 'Khóa học', tabs: courseTabs } satisfies RouteHandle,
             children: [
-              { index: true, ...todo('courseInfo') },
-              { path: 'lessons', ...todo('courseLessons') },
-              { path: 'students', ...todo('courseStudents') },
+              { index: true, element: <CourseInfoPage /> },
+              {
+                path: 'lessons',
+                element: <CourseLessonsPage />,
+                handle: { title: 'Khóa học · Bài học' } satisfies RouteHandle,
+              },
+              { path: 'students', element: <CourseStudentsPage /> },
             ],
           },
           {
@@ -126,7 +146,7 @@ export const router = createBrowserRouter([
             path: '/teaching/lessons/:lessonId',
             handle: { title: 'Soạn bài học', tabs: lessonTabs } satisfies RouteHandle,
             children: [
-              { index: true, ...todo('lessonContent') },
+              { index: true, element: <LessonEditorPage /> },
               { path: 'quizzes', ...todo('lessonQuizzes') },
               { path: 'ai', ...todo('lessonAi') },
               { path: 'ai/preview', ...todo('aiPreview') },
@@ -145,7 +165,7 @@ export const router = createBrowserRouter([
           { path: paths.adminUsers, ...todo('adminUsers') },
           { path: paths.adminTeacherRequests, ...todo('adminTeacherRequests') },
           { path: paths.adminCategories, ...todo('adminCategories') },
-          { path: paths.adminCourses, ...todo('adminCourses') },
+          { path: paths.adminCourses, element: <AdminCoursesPage />, handle: { title: 'Khóa học' } satisfies RouteHandle },
           { path: paths.adminStatistics, ...todo('adminStatistics') },
         ],
       },

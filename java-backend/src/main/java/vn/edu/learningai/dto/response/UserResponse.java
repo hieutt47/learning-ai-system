@@ -13,9 +13,10 @@ import java.time.Instant;
 @AllArgsConstructor
 @Builder
 public class UserResponse {
-    private Long id;
+    private String id;
     private String fullName;
     private String email;
     private UserRole role;
+    private Boolean isActive;
     private Instant createdAt;
 }
