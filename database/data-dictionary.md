@@ -9,7 +9,7 @@ DB MySQL 8 (InnoDB, utf8mb4). PK BIGINT AUTO_INCREMENT; wire ID string. Thời g
 | teacher_requests | id PK, user_id FK users, reason TEXT, status CHECK PENDING/APPROVED/REJECTED, decided_by? FK users, decision_note?, decided_at?, created_at |
 | categories | id PK, name VARCHAR(120) UNIQUE, description? TEXT, created_at, updated_at |
 | courses | id PK, teacher_id FK users, category_id FK categories, title VARCHAR(200), description TEXT, thumbnail_url?, thumbnail_storage_key?, price DECIMAL CHECK ≥0 DEFAULT 0, is_published BOOLEAN DEFAULT false, archived_at?, created_at, updated_at |
-| course_members | course_id FK courses + student_id FK users = composite PK, enrolled_at |
+| course_members | id PK, course_id FK courses, student_id FK users, enrolled_at; UNIQUE(course_id, student_id) |
 | lessons | id PK, course_id FK courses, title VARCHAR(200), video_url VARCHAR(2048), transcript_text? TEXT, order_index INT CHECK ≥0, created_at, updated_at |
 | lesson_documents | id PK, lesson_id FK lessons, uploaded_by FK users, original_name VARCHAR(255), storage_key VARCHAR(512) UNIQUE, media_type VARCHAR(100), size_bytes BIGINT CHECK >0, extracted_text? TEXT, content_hash VARCHAR(64), created_at |
 | ai_generations | id PK, lesson_id FK lessons, source_document_id? FK lesson_documents SET NULL, source_type CHECK TRANSCRIPT/DOCUMENT, generation_type CHECK QUIZ/FLASHCARD, requested_count INT CHECK 1..10, difficulty? CHECK EASY/MEDIUM/HARD, provider VARCHAR(100), model VARCHAR(100), prompt_version VARCHAR(50), source_hash VARCHAR(64), status CHECK SUCCEEDED/FAILED, candidate_json? JSON, error_code?, created_by FK users, created_at |
@@ -25,7 +25,7 @@ DB MySQL 8 (InnoDB, utf8mb4). PK BIGINT AUTO_INCREMENT; wire ID string. Thời g
 - Email lưu normalized lowercase; UNIQUE thực tế dùng cùng quy tắc register/login/import.
 - MySQL không có partial/filtered index. Ràng buộc "duy nhất khi ở trạng thái X" làm bằng generated column trả NULL ngoài trạng thái X kèm UNIQUE (UNIQUE cho phép nhiều NULL), và service vẫn kiểm tra trong transaction.
 - Một Teacher request PENDING/user: unique có điều kiện (generated column như trên); decision field phải phù hợp status, không tự approve mình.
-- auth_sessions index user_id; private request kiểm tra revoked_at/expiry và user active.
+- auth_sessions index user_id; login đặt expires_at = thời điểm đăng nhập + 7 ngày. Refresh kiểm tra revoked_at/expires_at và user active; thành công thì thay refresh_token_hash và cập nhật expires_at = thời điểm refresh + 7 ngày trong cùng transaction. Phiên hết hạn không được gia hạn; chưa có hạn tuyệt đối. Logout thu hồi refresh session; private request kiểm tra chữ ký/hạn access JWT và user active, access token đã phát hành còn hiệu lực đến exp.
 - lessons UNIQUE(course_id, order_index); questions UNIQUE(quiz_id, order_index); options UNIQUE(question_id, order_index). Reorder cần transaction và chiến lược tránh trùng tạm thời, chốt khi viết migration.
 - Unique có điều kiện option đúng theo question_id (generated column như trên): ngăn >1 đáp án đúng; ≥2 option và đúng 1 khi publish kiểm tra ở service/transaction. DB CHECK đơn hàng không bảo đảm số option trên các row; nếu cần trigger cho môn CSDL phải viết và kiểm thử riêng.
 - Unique có điều kiện attempt IN_PROGRESS theo (quiz_id, student_id) (generated column như trên); UNIQUE(attempt_id, question_id) cho answers.
@@ -38,4 +38,4 @@ DB MySQL 8 (InnoDB, utf8mb4). PK BIGINT AUTO_INCREMENT; wire ID string. Thời g
 
 ## Bổ sung so với README
 
-categories phục vụ quản trị danh mục; auth_sessions cho logout có hiệu lực; teacher_requests cho approval; lesson_documents cho upload/extraction; ai_generations truy vết nháp; flashcard.status cho review. Thêm archived_at để giữ lịch sử; attempt.status/version/count để chống nộp trùng và ghi điểm nhất quán. Không thêm bảng thanh toán, progress video, chatbot hay thông báo.
+categories phục vụ quản trị danh mục; auth_sessions cho thu hồi refresh token khi logout; teacher_requests cho approval; lesson_documents cho upload/extraction; ai_generations truy vết nháp; flashcard.status cho review. Thêm archived_at để giữ lịch sử; attempt.status/version/count để chống nộp trùng và ghi điểm nhất quán. Không thêm bảng thanh toán, progress video, chatbot hay thông báo.
