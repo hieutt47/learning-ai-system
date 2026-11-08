@@ -6,7 +6,7 @@ DB MySQL 8 (InnoDB, utf8mb4). PK BIGINT AUTO_INCREMENT; wire ID string. Thời g
 |---|---|
 | users | id PK, full_name VARCHAR(120), email VARCHAR(254) UNIQUE normalized, password_hash VARCHAR(255), role VARCHAR CHECK ADMIN/TEACHER/STUDENT, is_active BOOLEAN, created_at, updated_at |
 | auth_sessions | id PK, user_id FK users, refresh_token_hash VARCHAR(255) UNIQUE, expires_at, revoked_at?, created_at, updated_at |
-| teacher_requests | id PK, user_id FK users, reason TEXT, status CHECK PENDING/APPROVED/REJECTED, decided_by? FK users, decision_note?, decided_at?, created_at |
+| teacher_requests | id PK, user_id FK users, reason TEXT, status CHECK PENDING/APPROVED/REJECTED, decided_by? FK users, decision_note? TEXT, decided_at?, created_at |
 | categories | id PK, name VARCHAR(120) UNIQUE, description? TEXT, created_at, updated_at |
 | courses | id PK, teacher_id FK users, category_id FK categories, title VARCHAR(200), description TEXT, thumbnail_url?, thumbnail_storage_key?, price DECIMAL CHECK ≥0 DEFAULT 0, is_published BOOLEAN DEFAULT false, archived_at?, created_at, updated_at |
 | course_members | id PK, course_id FK courses, student_id FK users, enrolled_at; UNIQUE(course_id, student_id) |
@@ -24,7 +24,7 @@ DB MySQL 8 (InnoDB, utf8mb4). PK BIGINT AUTO_INCREMENT; wire ID string. Thời g
 
 - Email lưu normalized lowercase; UNIQUE thực tế dùng cùng quy tắc register/login/import.
 - MySQL không có partial/filtered index. Ràng buộc "duy nhất khi ở trạng thái X" làm bằng generated column trả NULL ngoài trạng thái X kèm UNIQUE (UNIQUE cho phép nhiều NULL), và service vẫn kiểm tra trong transaction.
-- Một Teacher request PENDING/user: unique có điều kiện (generated column như trên); decision field phải phù hợp status, không tự approve mình.
+- Một Teacher request PENDING/user được kiểm soát tại service: khóa dòng user, kiểm tra PENDING và tạo yêu cầu trong cùng transaction. ck_teacher_requests_decision trong V3 yêu cầu PENDING có decided_by/decision_note/decided_at NULL, APPROVED/REJECTED có decided_by/decided_at; ck_teacher_requests_no_self_approval cấm tự approve. Service không cho admin tự xét duyệt yêu cầu của mình.
 - auth_sessions index user_id; login đặt expires_at = thời điểm đăng nhập + 7 ngày. Refresh kiểm tra revoked_at/expires_at và user active; thành công thì thay refresh_token_hash và cập nhật expires_at = thời điểm refresh + 7 ngày trong cùng transaction. Phiên hết hạn không được gia hạn; chưa có hạn tuyệt đối. Logout thu hồi refresh session; private request kiểm tra chữ ký/hạn access JWT và user active, access token đã phát hành còn hiệu lực đến exp.
 - lessons UNIQUE(course_id, order_index); questions UNIQUE(quiz_id, order_index); options UNIQUE(question_id, order_index). Reorder cần transaction và chiến lược tránh trùng tạm thời, chốt khi viết migration.
 - Unique có điều kiện option đúng theo question_id (generated column như trên): ngăn >1 đáp án đúng; ≥2 option và đúng 1 khi publish kiểm tra ở service/transaction. DB CHECK đơn hàng không bảo đảm số option trên các row; nếu cần trigger cho môn CSDL phải viết và kiểm thử riêng.

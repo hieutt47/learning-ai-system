@@ -10,7 +10,7 @@ Field dưới đây là thiết kế; khi viết OpenAPI phải khai báo requir
 | Logout | Cookie: refreshToken nếu có; không body; không gửi header Authorization | 204, không body; Set-Cookie xóa refreshToken |
 | Profile | full_name bắt buộc, không null/rỗng/chỉ có khoảng trắng, dài 1–120 ký tự; body thiếu full_name trả 400 VALIDATION_ERROR | User (200); chỉ cập nhật full_name, không đổi email/password/role/is_active |
 | UserStatus | is_active | User |
-| TeacherRequest/Decision | reason / status=APPROVED hoặc REJECTED, decision_note | id, user_id, reason, status, decided_by, decided_at |
+| TeacherRequest/Decision | reason bắt buộc, không null/rỗng/chỉ có khoảng trắng, tối đa 4000 ký tự / status bắt buộc APPROVED hoặc REJECTED, decision_note nullable tối đa 4000 ký tự | id, user_id, reason, status, decided_by nullable, decision_note nullable, decided_at nullable, created_at; các ID là string, timestamp UTC |
 | CategoryWrite | name, description nullable | id, name, description |
 | CourseWrite | title, description, category_id, price | CourseOwner: id, fields trên, thumbnail_url nullable, is_published, archived_at nullable, teacher_id, created_at, updated_at |
 | Publication/Archive | is_published / archived=true | CourseOwner |
@@ -35,6 +35,8 @@ Field dưới đây là thiết kế; khi viết OpenAPI phải khai báo requir
 | SystemStatistics | Không ghi | active_users, teachers, published_courses, enrollments, submitted_attempts, generated_at |
 
 Email register/login được chuẩn hóa trong service bằng `trim().toLowerCase(Locale.ROOT)` trước khi lưu hoặc xác thực; ví dụ `"User@Example.com"` trở thành `"user@example.com"`. DTO được validation trước khi gọi service: null/rỗng bị `@NotBlank` từ chối; register có thêm `@Email`, nên email có khoảng trắng đầu/cuối có thể bị trả 400 trước khi service kịp trim. DTO không tự thay đổi email; password luôn được giữ nguyên.
+
+TeacherRequest mới có status=PENDING, decided_by/decision_note/decided_at=null; user_id lấy từ người đang đăng nhập. Hai danh sách TeacherRequest nhận page/page_size/sort; sort whitelist id, status, created_at, decided_at, mặc định created_at desc rồi id desc. Thiếu hoặc sai reason/status, hoặc decision_note vượt giới hạn trả 400 VALIDATION_ERROR; status=PENDING không hợp lệ khi quyết định. Chỉ yêu cầu PENDING được xét duyệt; APPROVED yêu cầu user vẫn là STUDENT active và cập nhật role thành TEACHER, nếu không trả 409 INVALID_STATE. REJECTED giữ nguyên role; quyết định lưu decided_by/decision_note/decided_at. User có thể gửi yêu cầu mới sau khi bị từ chối nếu vẫn là STUDENT và chưa có PENDING.
 
 Giới hạn đề xuất: full_name 1–120; email ≤254; password đăng ký 10–72 ký tự; title 1–200; question/card mỗi mặt ≤4000; options 2–6, content 1–1000; order_index≥0; price≥0 với 2 chữ số thập phân; count 1–10; difficulty EASY/MEDIUM/HARD. Không trả full_name/email ngoài phạm vi yêu cầu; không bao giờ trả password_hash hoặc refresh_hash.
 

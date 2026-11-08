@@ -12,10 +12,10 @@ Mọi route có prefix `/api/v1`. A=ADMIN, T=TEACHER, S=STUDENT, U=user active �
 | AUTH-02 | PATCH /users/me | U | Profile → User (200); full_name bắt buộc, không null/rỗng/chỉ có khoảng trắng, tối đa 120 ký tự; thiếu hoặc không hợp lệ trả 400; chỉ cập nhật tên |
 | AUTH-02 | GET /users | A | Page<User> |
 | AUTH-02 | PATCH /users/{user_id}/status | A | UserStatus → User |
-| USER-01 | POST /teacher-requests | S | TeacherRequest → Request (201) |
-| USER-01 | GET /teacher-requests/me | U | Page<Request> |
-| USER-01 | GET /teacher-requests | A | Page<Request> |
-| USER-01 | PATCH /teacher-requests/{request_id}/decision | A | Decision → Request |
+| USER-01 | POST /teacher-requests | S | TeacherRequest → Request (201, PENDING); không yêu cầu header Location; đã có PENDING trả 409 INVALID_STATE |
+| USER-01 | GET /teacher-requests/me | U | page/page_size/sort → Page<Request>; chỉ yêu cầu của người đang đăng nhập |
+| USER-01 | GET /teacher-requests | A | status tùy chọn PENDING/APPROVED/REJECTED, page/page_size/sort → Page<Request> |
+| USER-01 | PATCH /teacher-requests/{request_id}/decision | A | Decision → Request (200); không tồn tại trả 404 NOT_FOUND; đã quyết định trả 409 INVALID_STATE; tự xét duyệt trả 403 FORBIDDEN |
 | CAT-01 | GET /categories | Public | Page<Category> |
 | CAT-01 | POST /categories | A | CategoryWrite → Category (201) |
 | CAT-01 | PATCH /categories/{category_id} | A | CategoryWrite → Category |

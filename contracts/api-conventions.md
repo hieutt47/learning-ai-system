@@ -4,7 +4,7 @@
 
 Response object trực tiếp, không envelope `data` thừa. Danh sách phân trang: `{items:[],page:1,page_size:20,total:0}`; page≥1, page_size 1–100. Danh sách con có giới hạn quy mô như options nằm trong object. Sort whitelist, mặc định ổn định theo created_at desc rồi id desc. PATCH cập nhật field được gửi; nullable ghi rõ. PUT question thay toàn bộ question và options, chỉ Draft.
 
-201 tạo mới + Location, riêng POST /auth/register trả 201 với User trong body và không yêu cầu header Location; 200 đọc/update hoặc thao tác lặp trả dữ liệu cũ; 204 delete/logout; 400 lỗi payload/validation; 401 chưa xác thực; 403 thiếu quyền; 404 tài nguyên không tồn tại/không được thấy; 409 conflict trạng thái/unique; 413 quá dung lượng; 415 loại file; 422 nguồn text không dùng được; 429 giới hạn; 502 output/provider AI lỗi; 504 AI timeout. Không lộ stack trace.
+201 tạo mới + Location, riêng POST /auth/register và POST /teacher-requests trả object vừa tạo trong body và không yêu cầu header Location; 200 đọc/update hoặc thao tác lặp trả dữ liệu cũ; 204 delete/logout; 400 lỗi payload/validation; 401 chưa xác thực; 403 thiếu quyền; 404 tài nguyên không tồn tại/không được thấy; 409 conflict trạng thái/unique; 413 quá dung lượng; 415 loại file; 422 nguồn text không dùng được; 429 giới hạn; 502 output/provider AI lỗi; 504 AI timeout. Không lộ stack trace.
 
 ```json
 {
