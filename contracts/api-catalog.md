@@ -17,8 +17,8 @@ Mọi route có prefix `/api/v1`. A=ADMIN, T=TEACHER, S=STUDENT, U=user active �
 | USER-01 | GET /teacher-requests | A | status tùy chọn PENDING/APPROVED/REJECTED, page/page_size/sort → Page<Request> |
 | USER-01 | PATCH /teacher-requests/{request_id}/decision | A | Decision → Request (200); không tồn tại trả 404 NOT_FOUND; đã quyết định trả 409 INVALID_STATE; tự xét duyệt trả 403 FORBIDDEN |
 | CAT-01 | GET /categories | Public | Page<Category> |
-| CAT-01 | POST /categories | A | CategoryWrite → Category (201) |
-| CAT-01 | PATCH /categories/{category_id} | A | CategoryWrite → Category |
+| CAT-01 | POST /categories | A | CategoryWrite → Category (201); không yêu cầu header Location |
+| CAT-01 | PATCH /categories/{category_id} | A | CategoryWrite → Category; chỉ cập nhật name/description khác null, field thiếu hoặc null giữ nguyên |
 | CAT-01 | DELETE /categories/{category_id} | A | 204 hoặc RESOURCE_IN_USE |
 | COURSE-02 | GET /courses | Public | q/category_id/page → Page<CoursePublic> |
 | COURSE-02 | GET /courses/{course_id} | Public | Published CoursePublic + outline |
