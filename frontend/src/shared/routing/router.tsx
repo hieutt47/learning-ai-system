@@ -10,10 +10,12 @@ import { ExplorePage } from '../../features/marketplace/ExplorePage'
 import { MyCoursesPage } from '../../features/marketplace/MyCoursesPage'
 import { TeachingCoursesPage } from '../../features/marketplace/TeachingCoursesPage'
 import { createBrowserRouter, type Params, type RouteObject } from 'react-router'
+import { LoginPage } from '../../features/auth/LoginPage'
+import { RegisterPage } from '../../features/auth/RegisterPage'
 import { setUnauthorizedHandler } from '../api/client'
 import { AppLayout } from '../components/AppLayout'
 import { AuthLayout } from '../components/AuthLayout'
-import { NotFoundState } from '../components/PageState'
+import { LoadingState, NotFoundState } from '../components/PageState'
 import { PlaceholderPage } from '../components/PlaceholderPage'
 import { RouteErrorPage } from '../components/RouteErrorPage'
 import { DevScreensPage } from '../dev/DevScreensPage'
@@ -21,6 +23,9 @@ import { HomeRedirect, RequireAccess } from './guards'
 import { paths } from './paths'
 import type { RouteHandle, TabItem } from './routeHandle'
 import { SCREENS, type ScreenKey } from './screens'
+import { LessonAiPage } from '../../features/teaching/ai/LessonAiPage'
+import { AiPreviewPage } from '../../features/teaching/ai/AiPreviewPage'
+import { LearnFlashcardsPage } from '../../features/learning/flashcards/LearnFlashcardsPage'
 
 /**
  * Bảng route của cả app, theo các màn (VIEWS), tab (tabsBar) và quyền (ACCESS) trong
@@ -71,8 +76,13 @@ export const router = createBrowserRouter([
     element: <AuthLayout />,
     errorElement: <RouteErrorPage />,
     children: [
-      { path: paths.login, ...todo('login') },
-      { path: paths.register, ...todo('register') },
+      {
+        element: <AuthLayout />,
+        children: [
+          { path: paths.login, element: <LoginPage />, handle: { title: 'Đăng nhập' } satisfies RouteHandle },
+          { path: paths.register, element: <RegisterPage />, handle: { title: 'Đăng ký' } satisfies RouteHandle },
+        ],
+      },
     ],
   },
   {
@@ -89,7 +99,19 @@ export const router = createBrowserRouter([
         handle: { title: 'Chi tiết khóa học', search: true } satisfies RouteHandle,
       },
       // Đã đăng nhập
-      { element: <RequireAccess allow="auth" />, children: [{ path: paths.profile, ...todo('profile') }] },
+      {
+        element: <RequireAccess allow="auth" />,
+        children: [{
+          path: paths.profile,
+          hydrateFallbackElement: <LoadingState />,
+          lazy: async () => {
+            const { ProfilePage } = await import('../../features/auth/ProfilePage')
+            return { Component: ProfilePage }
+          },
+          handle: { title: 'Hồ sơ' } satisfies RouteHandle,
+        }],
+      },
+
       // Sinh viên
       {
         element: <RequireAccess allow={['STUDENT']} />,
@@ -103,7 +125,11 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <LearningDocumentsPage /> },
               { path: 'quiz', ...todo('learnQuiz') },
-              { path: 'flashcards', ...todo('learnFlashcards') },
+              {
+                path: 'flashcards',
+                element: <LearnFlashcardsPage />,
+                handle: { title: 'Học bài · Flashcard' } satisfies RouteHandle,
+              },
             ],
           },
           { path: '/quizzes/:quizId', ...todo('takeQuiz') },
@@ -137,8 +163,16 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <LessonEditorPage /> },
               { path: 'quizzes', ...todo('lessonQuizzes') },
-              { path: 'ai', ...todo('lessonAi') },
-              { path: 'ai/preview', ...todo('aiPreview') },
+              {
+                path: 'ai',
+                element: <LessonAiPage />,
+                handle: { title: 'Soạn bài học · AI & Flashcard' } satisfies RouteHandle,
+              },
+              {
+                path: 'ai/preview',
+                element: <AiPreviewPage />,
+                handle: { title: 'Xem trước kết quả AI' } satisfies RouteHandle,
+              },
             ],
           },
           { path: '/teaching/quizzes/:quizId/edit', ...todo('quizEditor') },
@@ -150,9 +184,33 @@ export const router = createBrowserRouter([
       {
         element: <RequireAccess allow={['ADMIN']} />,
         children: [
-          { path: paths.adminUsers, ...todo('adminUsers') },
-          { path: paths.adminTeacherRequests, ...todo('adminTeacherRequests') },
-          { path: paths.adminCategories, ...todo('adminCategories') },
+          {
+            path: paths.adminUsers,
+            hydrateFallbackElement: <LoadingState />,
+            lazy: async () => {
+              const { UsersPage } = await import('../../features/admin/UsersPage')
+              return { Component: UsersPage }
+            },
+            handle: { title: 'Người dùng' } satisfies RouteHandle,
+          },
+          {
+            path: paths.adminTeacherRequests,
+            hydrateFallbackElement: <LoadingState />,
+            lazy: async () => {
+              const { TeacherRequestsPage } = await import('../../features/admin/TeacherRequestsPage')
+              return { Component: TeacherRequestsPage }
+            },
+            handle: { title: 'Duyệt giảng viên' } satisfies RouteHandle,
+          },
+          {
+            path: paths.adminCategories,
+            hydrateFallbackElement: <LoadingState />,
+            lazy: async () => {
+              const { CategoriesPage } = await import('../../features/admin/CategoriesPage')
+              return { Component: CategoriesPage }
+            },
+            handle: { title: 'Danh mục' } satisfies RouteHandle,
+          },
           { path: paths.adminCourses, element: <AdminCoursesPage />, handle: { title: 'Khóa học' } satisfies RouteHandle },
           { path: paths.adminStatistics, ...todo('adminStatistics') },
         ],

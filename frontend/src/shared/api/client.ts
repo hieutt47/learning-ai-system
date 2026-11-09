@@ -28,6 +28,18 @@ let accessTokenProvider: TokenProvider = () => null
 export function setAccessTokenProvider(provider: TokenProvider): void {
   accessTokenProvider = provider
 }
+
+let refreshTokenHandler: (() => Promise<void>) | null = null
+let sessionExpiredHandler: (() => void) | null = null
+
+export function setRefreshTokenHandler(handler: () => Promise<void>): void {
+  refreshTokenHandler = handler
+}
+
+export function setSessionExpiredHandler(handler: () => void): void {
+  sessionExpiredHandler = handler
+}
+
 let unauthorizedHandler: (() => void) | null = null
 export function setUnauthorizedHandler(handler: () => void): void {
   unauthorizedHandler = handler
@@ -39,6 +51,7 @@ export interface RequestOptions {
   body?: unknown
   signal?: AbortSignal
   headers?: Record<string, string>
+  auth?: boolean
 }
 function buildUrl(path: string, query?: Query): string {
   const url = `${BASE_URL}${path.startsWith('/') ? path : `/${path}`}`
@@ -54,18 +67,19 @@ function buildUrl(path: string, query?: Query): string {
   const qs = params.toString()
   return qs ? `${url}?${qs}` : url
 }
-function buildHeaders(options: RequestOptions): Headers {
+
+function buildHeaders(
+  options: RequestOptions,
+  token: string | null | undefined = options.auth === false ? null : accessTokenProvider(),
+): Headers {
   const headers = new Headers({ Accept: 'application/json', ...options.headers })
   if (options.body !== undefined && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json')
   }
-  const token = accessTokenProvider()
-  if (token) {
+  if (options.auth === false) {
+    headers.delete('Authorization')
+  } else if (token) {
     headers.set('Authorization', `Bearer ${token}`)
-  }
-  const devUserId = import.meta.env.VITE_DEV_USER_ID
-  if (import.meta.env.DEV && devUserId) {
-    headers.set('X-User-Id', devUserId)
   }
   return headers
 }
@@ -100,12 +114,20 @@ function defaultCode(status: number): ErrorCode {
       return 'UNCATEGORIZED_EXCEPTION'
   }
 }
-export async function apiRequest<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
+
+function expireSession(): void {
+  sessionExpiredHandler?.()
+  unauthorizedHandler?.()
+}
+
+async function sendRequest<T>(method: string, path: string, options: RequestOptions, retried = false): Promise<T> {
+  const token = options.auth === false ? null : accessTokenProvider()
   let response: Response
   try {
     response = await fetch(buildUrl(path, options.query), {
       method,
-      headers: buildHeaders(options),
+      headers: buildHeaders(options, token),
+      credentials: 'include',
       body:
         options.body === undefined
           ? undefined
@@ -122,8 +144,24 @@ export async function apiRequest<T>(method: string, path: string, options: Reque
   }
   if (!response.ok) {
     const apiError = await toApiError(response)
-    if (response.status === 401) {
-      unauthorizedHandler?.()
+    if (response.status === 401 && token) {
+      if (!retried && refreshTokenHandler) {
+        try {
+          if (accessTokenProvider() === token) {
+            await refreshTokenHandler()
+          }
+        } catch (error) {
+          if (isApiError(error) && (error.status === 401 || error.code === 'ACCOUNT_INACTIVE')) {
+            expireSession()
+          }
+          throw error
+        }
+        options.signal?.throwIfAborted()
+        return sendRequest<T>(method, path, options, true)
+      }
+      expireSession()
+    } else if (token && apiError.code === 'ACCOUNT_INACTIVE') {
+      expireSession()
     }
     throw apiError
   }
@@ -132,6 +170,11 @@ export async function apiRequest<T>(method: string, path: string, options: Reque
   }
   return (await response.json()) as T
 }
+
+export function apiRequest<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
+  return sendRequest<T>(method, path, options)
+}
+
 export const apiGet = <T>(path: string, options?: Omit<RequestOptions, 'body'>) =>
   apiRequest<T>('GET', path, options)
 export const apiPost = <T>(path: string, body?: unknown, options?: RequestOptions) =>

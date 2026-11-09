@@ -56,7 +56,7 @@ class CourseControllerTest extends IntegrationTestBase {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {"email":"inactive@test.local","password":"DemoPass123!"}"""))
-            .andExpect(status().isUnauthorized())
+            .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("ACCOUNT_INACTIVE"));
     }
     @Test
