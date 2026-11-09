@@ -48,3 +48,11 @@ app:
     location: ${APP_STORAGE_LOCATION:./uploads}
     public-base-url: ${APP_STORAGE_PUBLIC_BASE_URL:/api/v1/files}
     lesson-documents: ${LESSON_DOCUMENT_STORAGE:./data/lesson-documents}
+  ai:
+    provider: ${AI_PROVIDER:mock}          # mock | llm (định dạng OpenAI Chat Completions: OpenRouter, OpenAI, Anthropic...)
+    base-url: ${AI_BASE_URL:https://openrouter.ai/api/v1}
+    model: ${AI_MODEL:}
+    api-key: ${AI_API_KEY:}
+    timeout-seconds: ${AI_TIMEOUT_SECONDS:90}
+    max-output-tokens: ${AI_MAX_OUTPUT_TOKENS:8192}
+    max-source-chars: 20000
