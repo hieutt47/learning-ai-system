@@ -97,22 +97,15 @@ public class CourseService {
         return courseOwnerAssembler.toResponse(getOwnedCourse(id, actor));
     }
 
-    /**
-     * Replaces the course thumbnail. The new file is written before the row is
-     * updated and the old file is removed only after the transaction commits, so
-     * a rollback leaves the previous thumbnail intact instead of dangling.
-     */
     @Transactional
     public CourseOwnerResponse updateThumbnail(Long id, MultipartFile file, AuthenticatedUser actor) {
         Course course = getOwnedCourse(id, actor);
         StoredFile stored = thumbnailService.store(file);
-
         String previousKey = course.getThumbnailStorageKey();
         course.setThumbnailStorageKey(stored.storageKey());
         course.setThumbnailUrl(stored.url());
         CourseOwnerResponse response =
             courseOwnerAssembler.toResponse(courseRepository.saveAndFlush(course));
-
         thumbnailService.deleteAfterCommit(previousKey);
         return response;
     }
@@ -127,13 +120,9 @@ public class CourseService {
         if (courseMemberRepository.existsById_CourseId(id)) {
             throw new ApiException(ErrorCode.INVALID_STATE, "Course already has enrolled students");
         }
-        // TODO(Nguoi 3): also reject when the course has lessons once LESSON-01 exists.
-
         courseRepository.delete(course);
-        // The row is gone, so nothing can ever resolve this file again.
         thumbnailService.deleteAfterCommit(course.getThumbnailStorageKey());
     }
-
     private Course getOwnedCourse(Long id, AuthenticatedUser actor) {
         return courseOwnership.requireOwned(id, actor);
     }
@@ -142,13 +131,11 @@ public class CourseService {
         return categoryRepository.findById(categoryId)
             .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Category not found"));
     }
-
     private void requireTeacherOrAdmin(AuthenticatedUser actor) {
         if (!actor.isTeacherOrAdmin()) {
             throw new ApiException(ErrorCode.FORBIDDEN, "Only teachers can manage courses");
         }
     }
-
     private Sort defaultSort() {
         return Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"));
     }

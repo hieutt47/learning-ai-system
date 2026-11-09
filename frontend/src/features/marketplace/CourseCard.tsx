@@ -3,7 +3,6 @@ import { Link } from 'react-router'
 import { paths } from '../../shared/routing/paths'
 import type { PublicCourse } from './course.types'
 
-/** Ảnh bìa: dùng thumbnail nếu có, không thì khối màu theo danh mục (như prototype). */
 export function CourseCover({ course, height = 160 }: { course: PublicCourse; height?: number }) {
   if (course.thumbnailUrl) {
     return (
@@ -32,7 +31,6 @@ export function CourseCover({ course, height = 160 }: { course: PublicCourse; he
   )
 }
 
-/** Một thẻ khóa học trong lưới Khám phá / Khóa học của tôi. */
 export function CourseCard({ course }: { course: PublicCourse }) {
   return (
     <Link to={paths.courseDetail(course.id)} style={{ color: 'inherit', textDecoration: 'none' }}>

@@ -44,7 +44,6 @@ class ImageTypeTest {
 
     @Test
     void riffWithoutWebpFormIsNotAnImage() {
-        // A WAV file also starts with RIFF but must not pass.
         byte[] wav = {'R', 'I', 'F', 'F', 0x24, 0, 0, 0, 'W', 'A', 'V', 'E'};
         assertThat(ImageType.detect(wav)).isEqualTo(Optional.empty());
     }

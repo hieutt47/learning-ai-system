@@ -13,7 +13,6 @@ const COLOR: Record<CourseStatus, string> = {
   Archived: 'warning',
 }
 
-/** Nhãn trạng thái dùng chung cho bảng giảng viên và admin, để hai chỗ không lệch màu/chữ. */
 export function CourseStatusTag({ status }: { status: CourseStatus }) {
   return <Tag color={COLOR[status]}>{LABEL[status]}</Tag>
 }

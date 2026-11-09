@@ -8,22 +8,12 @@ import { CourseCard } from './CourseCard'
 
 const PAGE_SIZE = 12
 
-/**
- * Khám phá khóa học (prototype #explore): khoá công khai, lọc danh mục, tìm kiếm
- * theo `?q=` từ ô tìm trên header, lưới thẻ, phân trang.
- *
- * Không có trạng thái "chưa đăng nhập": guest xem được đúng như sinh viên, chỉ
- * khác ở trang chi tiết khi bấm ghi danh.
- */
 export function ExplorePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const q = searchParams.get('q') ?? ''
   const categoryId = searchParams.get('category_id') ?? undefined
   const page = Number(searchParams.get('page') ?? '1') || 1
-
-  // Ô tìm riêng của màn, đồng bộ với ?q= trên URL để tải lại/back vẫn giữ từ khóa.
   const [draftQuery, setDraftQuery] = useState(q)
-
   const categoriesQuery = useQuery({ queryKey: courseKeys.categories, queryFn: getCategories })
   const coursesQuery = useQuery({
     queryKey: courseKeys.explore({ q, categoryId, page, pageSize: PAGE_SIZE }),
@@ -39,13 +29,11 @@ export function ExplorePage() {
         params.delete(key)
       }
     }
-    // Đổi bộ lọc luôn quay về trang 1, trừ khi chính trang được đổi.
     if (!('page' in next)) {
       params.delete('page')
     }
     setSearchParams(params, { replace: true })
   }
-
   const submitSearch = () => updateParams({ q: draftQuery.trim() || undefined })
   const clearFilters = () => {
     setDraftQuery('')
@@ -55,7 +43,6 @@ export function ExplorePage() {
   const categories = categoriesQuery.data ?? []
   const total = coursesQuery.data?.total ?? 0
   const items = coursesQuery.data?.items ?? []
-
   return (
     <Space orientation="vertical" size={20} style={{ width: '100%' }}>
       <div>
@@ -66,7 +53,6 @@ export function ExplorePage() {
           Tất cả khóa học đều miễn phí. Chọn danh mục hoặc tìm theo tên khóa học.
         </Typography.Text>
       </div>
-
       <Row gutter={[12, 12]} align="middle" justify="space-between">
         <Col flex="auto">
           <Segmented
@@ -92,12 +78,10 @@ export function ExplorePage() {
           </Space.Compact>
         </Col>
       </Row>
-
       {coursesQuery.isLoading && <LoadingState tip="Đang tải khóa học…" />}
       {coursesQuery.isError && (
         <ErrorState error={coursesQuery.error} onRetry={() => void coursesQuery.refetch()} />
       )}
-
       {coursesQuery.isSuccess && items.length === 0 && (
         <EmptyState
           description={
@@ -112,7 +96,6 @@ export function ExplorePage() {
           }
         />
       )}
-
       {coursesQuery.isSuccess && items.length > 0 && (
         <>
           <Typography.Text type="secondary">{total} khóa học</Typography.Text>

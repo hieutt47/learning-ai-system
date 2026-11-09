@@ -25,21 +25,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * ENROLL-01 over HTTP (scenarios T11, T12, T33).
- *
- * Course 2: published, free, already joined by student 4.
- * Course 6/7 come from enrollment-fixtures.sql: 6 free and empty, 7 priced.
- * Students: 4 (Student A), 6 (Student B).
- */
 @Sql(scripts = {"/test-fixtures.sql", "/enrollment-fixtures.sql"},
     executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 class EnrollmentControllerTest extends IntegrationTestBase {
     private static final String MY_COURSES = "/api/v1/users/me/courses";
-
     @Autowired
     private JdbcTemplate jdbcTemplate;
-
     @Test
     void firstEnrollmentIsCreated() throws Exception {
         mockMvc.perform(post("/api/v1/courses/6/enroll").header("Authorization", "Bearer " + tokenFor(4)))
@@ -47,53 +38,44 @@ class EnrollmentControllerTest extends IntegrationTestBase {
             .andExpect(jsonPath("$.course_id").value("6"))
             .andExpect(jsonPath("$.student_id").value("4"))
             .andExpect(jsonPath("$.enrolled_at").exists());
-
         assertThat(memberCount(6, 4)).isEqualTo(1);
     }
-
     @Test
     void retryReturnsTheSameMembershipWith200() throws Exception {
         String firstAt = mockMvc.perform(post("/api/v1/courses/6/enroll").header("Authorization", "Bearer " + tokenFor(4)))
             .andExpect(status().isCreated())
             .andReturn().getResponse().getContentAsString();
-        // Compare at microsecond precision, which is what MySQL DATETIME(6)
-        // stores; any finer digits never existed in the database.
+
         java.time.Instant expected = java.time.Instant
             .parse(com.jayway.jsonpath.JsonPath.read(firstAt, "$.enrolled_at"))
             .truncatedTo(java.time.temporal.ChronoUnit.MICROS);
-
         String secondAt = mockMvc.perform(post("/api/v1/courses/6/enroll").header("Authorization", "Bearer " + tokenFor(4)))
             .andExpect(status().isOk())
             .andReturn().getResponse().getContentAsString();
         java.time.Instant actual =
             java.time.Instant.parse(com.jayway.jsonpath.JsonPath.read(secondAt, "$.enrolled_at"));
 
-        // The original timestamp, not a new one: the row was not rewritten.
         assertThat(actual.truncatedTo(java.time.temporal.ChronoUnit.MICROS)).isEqualTo(expected);
-
         assertThat(memberCount(6, 4)).isEqualTo(1);
     }
 
     @Test
     void enrollingInAnAlreadyJoinedCourseIsIdempotent() throws Exception {
-        // Student 4 is seeded into course 2.
+
         mockMvc.perform(post("/api/v1/courses/2/enroll").header("Authorization", "Bearer " + tokenFor(4)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.course_id").value("2"));
-
         assertThat(memberCount(2, 4)).isEqualTo(1);
     }
-
     @Test
     void concurrentFirstEnrollmentsCreateExactlyOneMembership() throws Exception {
-        // T11: N simultaneous requests for the same (course, student).
+
         jdbcTemplate.update("DELETE FROM course_members WHERE course_id = 6 AND student_id = 6");
         jdbcTemplate.update("UPDATE courses SET is_published = TRUE, archived_at = NULL WHERE id = 6");
         int attempts = 6;
         ExecutorService pool = Executors.newFixedThreadPool(attempts);
         CountDownLatch startLine = new CountDownLatch(1);
         List<Future<Integer>> futures = new ArrayList<>();
-
         try {
             for (int i = 0; i < attempts; i++) {
                 Callable<Integer> call = () -> {
@@ -104,13 +86,11 @@ class EnrollmentControllerTest extends IntegrationTestBase {
                 futures.add(pool.submit(call));
             }
             startLine.countDown();
-
             List<Integer> statuses = new ArrayList<>();
             for (Future<Integer> future : futures) {
                 statuses.add(future.get(30, TimeUnit.SECONDS));
             }
 
-            // Exactly one caller created the membership; the rest read it back.
             assertThat(statuses).containsOnly(200, 201);
             assertThat(statuses).filteredOn(s -> s == 201).hasSize(1);
             assertThat(memberCount(6, 6)).isEqualTo(1);
@@ -118,21 +98,18 @@ class EnrollmentControllerTest extends IntegrationTestBase {
             pool.shutdownNow();
         }
     }
-
     @Test
     void draftCourseIsNotFound() throws Exception {
         mockMvc.perform(post("/api/v1/courses/1/enroll").header("Authorization", "Bearer " + tokenFor(4)))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
-
     @Test
     void archivedCourseIsNotFound() throws Exception {
         mockMvc.perform(post("/api/v1/courses/5/enroll").header("Authorization", "Bearer " + tokenFor(4)))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
-
     @Test
     void pricedCourseIsCourseNotFree() throws Exception {
         mockMvc.perform(post("/api/v1/courses/7/enroll").header("Authorization", "Bearer " + tokenFor(4)))
@@ -141,28 +118,24 @@ class EnrollmentControllerTest extends IntegrationTestBase {
 
         assertThat(memberCount(7, 4)).isZero();
     }
-
     @Test
     void teacherCannotEnroll() throws Exception {
         mockMvc.perform(post("/api/v1/courses/6/enroll").header("Authorization", "Bearer " + tokenFor(2)))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
-
     @Test
     void adminCannotEnroll() throws Exception {
         mockMvc.perform(post("/api/v1/courses/6/enroll").header("Authorization", "Bearer " + tokenFor(1)))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
-
     @Test
     void anonymousEnrollIsUnauthenticated() throws Exception {
         mockMvc.perform(post("/api/v1/courses/6/enroll"))
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
     }
-
     @Test
     void myCoursesListsEnrollmentsWithCourseFields() throws Exception {
         mockMvc.perform(get(MY_COURSES).header("Authorization", "Bearer " + tokenFor(4)))
@@ -170,42 +143,32 @@ class EnrollmentControllerTest extends IntegrationTestBase {
             .andExpect(jsonPath("$.total").value(2))
             .andExpect(jsonPath("$.items[*].id").value(
                 org.hamcrest.Matchers.containsInAnyOrder("2", "4")))
-            // CoursePublic fields are flattened next to enrolled_at, not nested.
             .andExpect(jsonPath("$.items[0].title").exists())
             .andExpect(jsonPath("$.items[0].teacher.full_name").exists())
             .andExpect(jsonPath("$.items[0].currency").value("VND"))
             .andExpect(jsonPath("$.items[0].enrolled_at").exists())
             .andExpect(jsonPath("$.items[0].course").doesNotExist());
     }
-
     @Test
     void myCoursesKeepsArchivedAndUnpublishedCoursesJoinedEarlier() throws Exception {
-        // Student 4 joins course 6, then it is archived underneath them (T33).
         mockMvc.perform(post("/api/v1/courses/6/enroll").header("Authorization", "Bearer " + tokenFor(4)))
             .andExpect(status().isCreated());
         jdbcTemplate.update("UPDATE courses SET archived_at = CURRENT_TIMESTAMP(6) WHERE id = 6");
-
         mockMvc.perform(get(MY_COURSES).header("Authorization", "Bearer " + tokenFor(4)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.items[*].id").value(
                 org.hamcrest.Matchers.containsInAnyOrder("2", "4", "6")));
 
-        // ...while the marketplace no longer offers it.
         mockMvc.perform(get("/api/v1/courses/6"))
             .andExpect(status().isNotFound());
     }
-
     @Test
     void myCoursesCarriesLessonCountAndArchiveFlag() throws Exception {
-        // Course 2 has two lessons and is not archived.
         mockMvc.perform(get(MY_COURSES).header("Authorization", "Bearer " + tokenFor(4)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.items[?(@.id=='2')].lesson_count").value(2))
-            // Not archived: the field is omitted rather than null, so the client
-            // can treat its presence as "archived".
             .andExpect(jsonPath("$.items[?(@.id=='2')].archived_at").isEmpty());
     }
-
     @Test
     void myCoursesForAStudentWithoutEnrollmentsIsEmpty() throws Exception {
         mockMvc.perform(get(MY_COURSES).header("Authorization", "Bearer " + tokenFor(6)))
@@ -213,7 +176,6 @@ class EnrollmentControllerTest extends IntegrationTestBase {
             .andExpect(jsonPath("$.total").value(0))
             .andExpect(jsonPath("$.items.length()").value(0));
     }
-
     @Test
     void myCoursesDoesNotLeakEmailOrStorageKey() throws Exception {
         mockMvc.perform(get(MY_COURSES).header("Authorization", "Bearer " + tokenFor(4)))
@@ -222,14 +184,12 @@ class EnrollmentControllerTest extends IntegrationTestBase {
             .andExpect(content().string(not(containsString("storage_key"))))
             .andExpect(content().string(not(containsString("youtu.be"))));
     }
-
     @Test
     void myCoursesRejectsInvalidPagination() throws Exception {
         mockMvc.perform(get(MY_COURSES).header("Authorization", "Bearer " + tokenFor(4)).param("page", "0"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
-
     @Test
     void ownerListsMembersWithoutEmail() throws Exception {
         mockMvc.perform(get("/api/v1/courses/2/members").header("Authorization", "Bearer " + tokenFor(2)))
@@ -240,39 +200,32 @@ class EnrollmentControllerTest extends IntegrationTestBase {
             .andExpect(jsonPath("$.items[0].enrolled_at").exists())
             .andExpect(content().string(not(containsString("@test.local"))));
     }
-
     @Test
     void adminListsMembersOfAnyCourse() throws Exception {
         mockMvc.perform(get("/api/v1/courses/2/members").header("Authorization", "Bearer " + tokenFor(1)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.total").value(1));
     }
-
     @Test
     void otherTeacherCannotListMembers() throws Exception {
         mockMvc.perform(get("/api/v1/courses/2/members").header("Authorization", "Bearer " + tokenFor(3)))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
-
     @Test
     void studentCannotListMembers() throws Exception {
         mockMvc.perform(get("/api/v1/courses/2/members").header("Authorization", "Bearer " + tokenFor(4)))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
-
     @Test
     void membersOfUnknownCourseIsNotFound() throws Exception {
         mockMvc.perform(get("/api/v1/courses/999/members").header("Authorization", "Bearer " + tokenFor(2)))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
-
     @Test
     void courseWithMembersCannotBeDeleted() throws Exception {
-        // Course 2 is published, which already blocks delete; this asserts the
-        // membership rule through a draft course so the reason is unambiguous.
         jdbcTemplate.update("UPDATE courses SET is_published = FALSE, archived_at = NULL WHERE id = 2");
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders

@@ -9,7 +9,6 @@ import tools.jackson.databind.ser.std.ToStringSerializer;
 
 import java.time.Instant;
 
-/** Result of enrolling: the membership that now exists, whether new or pre-existing. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
