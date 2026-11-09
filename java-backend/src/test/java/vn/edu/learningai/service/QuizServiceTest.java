@@ -16,6 +16,7 @@ import tools.jackson.databind.json.JsonMapper;
 import vn.edu.learningai.common.enums.QuizStatus;
 import vn.edu.learningai.common.enums.UserRole;
 import vn.edu.learningai.dto.request.CreateQuizRequest;
+import vn.edu.learningai.dto.request.UpdateQuizRequest;
 import vn.edu.learningai.dto.response.QuizAuthorResponse;
 import vn.edu.learningai.dto.response.QuizStudentResponse;
 import vn.edu.learningai.entity.Question;
@@ -256,6 +257,132 @@ class QuizServiceTest {
     void invalidPaginationIsRejected(int page, int pageSize) {
         fails(ErrorCode.VALIDATION_ERROR, () -> service.list(10L, page, pageSize));
         verifyNoInteractions(quizzes, context);
+    }
+
+    @Test
+    void titleOnlyUpdateRetainsProvenanceAndReturnsQuestions() {
+        actor(7L, UserRole.TEACHER);
+        lesson();
+        Quiz draft = quiz(QuizStatus.DRAFT);
+        draft.setGenerationId(40L);
+        when(quizzes.findByIdForUpdate(30L)).thenReturn(Optional.of(draft));
+        var question = Question.builder().id(50L).quizId(30L).content("Question").orderIndex(0).build();
+        when(questions.findByQuizIdOrderByOrderIndexAsc(30L)).thenReturn(List.of(question));
+        when(options.findByQuestionIdIn(List.of(50L))).thenReturn(List.of());
+        var result = service.update(30L, new UpdateQuizRequest("Updated", null));
+        assertThat(result.title()).isEqualTo("Updated");
+        assertThat(result.questions()).hasSize(1);
+        assertThat(draft.getGenerationId()).isEqualTo(40L);
+        verify(context, never()).findGeneration(any());
+        verify(quizzes).flush();
+        verify(quizzes, never()).findById(any());
+    }
+
+    @Test
+    void adminUpdatesProvenanceOnlyWithOwnValidGeneration() {
+        actor(8L, UserRole.ADMIN);
+        lesson();
+        Quiz draft = quiz(QuizStatus.DRAFT);
+        when(quizzes.findByIdForUpdate(30L)).thenReturn(Optional.of(draft));
+        when(context.findGeneration(40L)).thenReturn(Optional.of(
+            new QuizContextRepository.GenerationContext(10L, 8L, "QUIZ", "SUCCEEDED")));
+        service.update(30L, new UpdateQuizRequest(null, 40L));
+        assertThat(draft.getTitle()).isEqualTo("Java");
+        assertThat(draft.getGenerationId()).isEqualTo(40L);
+    }
+
+    @Test
+    void invalidGenerationDoesNotPartiallyChangeTitle() {
+        actor(7L, UserRole.TEACHER);
+        lesson();
+        Quiz draft = quiz(QuizStatus.DRAFT);
+        when(quizzes.findByIdForUpdate(30L)).thenReturn(Optional.of(draft));
+        fails(ErrorCode.VALIDATION_ERROR, () -> service.update(30L, new UpdateQuizRequest("Changed", 40L)));
+        assertThat(draft.getTitle()).isEqualTo("Java");
+        verify(quizzes, never()).flush();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = QuizStatus.class, names = {"PUBLISHED", "CLOSED"})
+    void publishedAndClosedQuizzesCannotBeUpdatedOrDeleted(QuizStatus status) {
+        actor(7L, UserRole.TEACHER);
+        lesson();
+        when(quizzes.findByIdForUpdate(30L)).thenReturn(Optional.of(quiz(status)));
+        fails(ErrorCode.INVALID_STATE, () -> service.update(30L, new UpdateQuizRequest("Changed", null)));
+        fails(ErrorCode.INVALID_STATE, () -> service.delete(30L));
+        verifyNoInteractions(questions, options);
+        verify(quizzes, never()).delete(any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = UserRole.class, names = {"TEACHER", "STUDENT"})
+    void nonOwnerCannotMutateDraft(UserRole role) {
+        actor(8L, role);
+        lesson();
+        when(quizzes.findByIdForUpdate(30L)).thenReturn(Optional.of(quiz(QuizStatus.DRAFT)));
+        fails(ErrorCode.FORBIDDEN, () -> service.update(30L, new UpdateQuizRequest("Changed", null)));
+        fails(ErrorCode.FORBIDDEN, () -> service.delete(30L));
+        verifyNoInteractions(questions, options);
+    }
+
+    @Test
+    void missingDraftReturns404ForUpdateAndRepeatedDelete() {
+        actor(7L, UserRole.TEACHER);
+        fails(ErrorCode.NOT_FOUND, () -> service.update(30L, new UpdateQuizRequest("Changed", null)));
+        fails(ErrorCode.NOT_FOUND, () -> service.delete(30L));
+    }
+
+    @Test
+    void draftWithHistoryCannotBeDeleted() {
+        actor(7L, UserRole.TEACHER);
+        lesson();
+        when(quizzes.findByIdForUpdate(30L)).thenReturn(Optional.of(quiz(QuizStatus.DRAFT)));
+        when(context.hasLearningHistory(30L)).thenReturn(true);
+        fails(ErrorCode.RESOURCE_IN_USE, () -> service.delete(30L));
+        verifyNoInteractions(questions, options);
+        verify(quizzes, never()).delete(any());
+    }
+
+    @Test
+    void deleteFlushesOptionsBeforeQuestionsBeforeQuiz() {
+        actor(8L, UserRole.ADMIN);
+        lesson();
+        Quiz draft = quiz(QuizStatus.DRAFT);
+        when(quizzes.findByIdForUpdate(30L)).thenReturn(Optional.of(draft));
+        var children = List.of(Question.builder().id(50L).quizId(30L).build());
+        when(questions.findByQuizIdOrderByOrderIndexAsc(30L)).thenReturn(children);
+        service.delete(30L);
+        var order = inOrder(quizzes, context, questions, options);
+        order.verify(quizzes).findByIdForUpdate(30L);
+        order.verify(context).findLesson(10L);
+        order.verify(context).hasLearningHistory(30L);
+        order.verify(questions).findByQuizIdOrderByOrderIndexAsc(30L);
+        order.verify(options).deleteByQuestionId(50L);
+        order.verify(options).flush();
+        order.verify(questions).deleteAll(children);
+        order.verify(questions).flush();
+        order.verify(quizzes).delete(draft);
+        order.verify(quizzes).flush();
+    }
+
+    @Test
+    void foreignKeyDeleteConflictBecomesResourceInUse() {
+        actor(7L, UserRole.TEACHER);
+        lesson();
+        when(quizzes.findByIdForUpdate(30L)).thenReturn(Optional.of(quiz(QuizStatus.DRAFT)));
+        doThrow(new org.springframework.dao.DataIntegrityViolationException("FK",
+            new java.sql.SQLException("Referenced", "23000", 1451))).when(quizzes).flush();
+        fails(ErrorCode.RESOURCE_IN_USE, () -> service.delete(30L));
+    }
+
+    @Test
+    void unrelatedDatabaseFailureIsNotDisguisedAsHistoryConflict() {
+        actor(7L, UserRole.TEACHER);
+        lesson();
+        when(quizzes.findByIdForUpdate(30L)).thenReturn(Optional.of(quiz(QuizStatus.DRAFT)));
+        var failure = new org.springframework.dao.DataIntegrityViolationException("Other failure");
+        doThrow(failure).when(quizzes).flush();
+        assertThatThrownBy(() -> service.delete(30L)).isSameAs(failure);
     }
 
     private void actor(Long id, UserRole role) {

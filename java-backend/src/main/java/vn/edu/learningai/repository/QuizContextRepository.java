@@ -43,6 +43,19 @@ public class QuizContextRepository {
             .optional();
     }
 
+    public boolean hasLearningHistory(Long quizId) {
+        return jdbc.sql("""
+            SELECT EXISTS(SELECT 1 FROM quiz_attempts WHERE quiz_id = :quiz_id)
+                OR EXISTS(SELECT 1 FROM student_answers a JOIN questions q ON q.id = a.question_id
+                    WHERE q.quiz_id = :quiz_id)
+                OR EXISTS(SELECT 1 FROM student_answers a
+                    JOIN question_options o ON o.id = a.selected_option_id
+                    JOIN questions q ON q.id = o.question_id WHERE q.quiz_id = :quiz_id)
+            """)
+            .param("quiz_id", quizId)
+            .query(Boolean.class).single();
+    }
+
     public record LessonContext(Long courseId, Long teacherId) {}
 
     public record GenerationContext(Long lessonId, Long createdBy, String type, String status) {}

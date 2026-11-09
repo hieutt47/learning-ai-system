@@ -1,6 +1,7 @@
 package vn.edu.learningai.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -8,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.edu.learningai.common.enums.QuizStatus;
 import vn.edu.learningai.common.enums.UserRole;
 import vn.edu.learningai.dto.request.CreateQuizRequest;
+import vn.edu.learningai.dto.request.UpdateQuizRequest;
 import vn.edu.learningai.dto.response.PageResponse;
 import vn.edu.learningai.dto.response.QuizAuthorResponse;
 import vn.edu.learningai.dto.response.QuizSummaryResponse;
@@ -24,6 +26,7 @@ import vn.edu.learningai.repository.QuizContextRepository;
 import vn.edu.learningai.repository.QuizRepository;
 import vn.edu.learningai.security.SecurityHelper;
 
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -88,6 +91,57 @@ public class QuizService {
             requireEnrollment(user, lesson);
         }
         List<Question> questions = questionRepository.findByQuizIdOrderByOrderIndexAsc(quizId);
+        Map<Long, List<QuestionOption>> options = loadOptions(questions);
+        return manager ? mapper.toAuthor(quiz, questions, options) : mapper.toStudent(quiz, questions, options);
+    }
+
+    @Transactional
+    public QuizAuthorResponse update(Long quizId, UpdateQuizRequest request) {
+        User user = security.getCurrentUser();
+        Quiz quiz = managedDraft(quizId, user);
+        if (request.generationId() != null) {
+            validateGeneration(request.generationId(), quiz.getLessonId(), user.getId());
+        }
+        if (request.title() != null) {
+            quiz.setTitle(request.title());
+        }
+        if (request.generationId() != null) {
+            quiz.setGenerationId(request.generationId());
+        }
+        quizRepository.flush();
+        List<Question> questions = questionRepository.findByQuizIdOrderByOrderIndexAsc(quizId);
+        Map<Long, List<QuestionOption>> options = loadOptions(questions);
+        return mapper.toAuthor(quiz, questions, options);
+    }
+
+    @Transactional
+    public void delete(Long quizId) {
+        User user = security.getCurrentUser();
+        Quiz quiz = managedDraft(quizId, user);
+        if (contextRepository.hasLearningHistory(quizId)) {
+            throw new ApiException(ErrorCode.RESOURCE_IN_USE, "Quiz has learning history");
+        }
+        try {
+            List<Question> questions = questionRepository.findByQuizIdOrderByOrderIndexAsc(quizId);
+            for (Question question : questions) {
+                optionRepository.deleteByQuestionId(question.getId());
+            }
+            optionRepository.flush();
+            questionRepository.deleteAll(questions);
+            questionRepository.flush();
+            quizRepository.delete(quiz);
+            quizRepository.flush();
+        } catch (DataIntegrityViolationException exception) {
+            for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+                if (cause instanceof SQLException sql && sql.getErrorCode() == 1451) {
+                    throw new ApiException(ErrorCode.RESOURCE_IN_USE, "Quiz content is referenced by learning history");
+                }
+            }
+            throw exception;
+        }
+    }
+
+    private Map<Long, List<QuestionOption>> loadOptions(List<Question> questions) {
         Map<Long, List<QuestionOption>> options = questions.stream()
             .collect(Collectors.toMap(Question::getId, question -> new java.util.ArrayList<>()));
         if (!questions.isEmpty()) {
@@ -96,7 +150,19 @@ public class QuizService {
                 options.get(option.getQuestionId()).add(option);
             }
         }
-        return manager ? mapper.toAuthor(quiz, questions, options) : mapper.toStudent(quiz, questions, options);
+        return options;
+    }
+
+    private Quiz managedDraft(Long quizId, User user) {
+        Quiz quiz = quizRepository.findByIdForUpdate(quizId)
+            .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Quiz not found"));
+        if (!isManager(user, lesson(quiz.getLessonId()))) {
+            throw new ApiException(ErrorCode.FORBIDDEN);
+        }
+        if (quiz.getStatus() != QuizStatus.DRAFT) {
+            throw new ApiException(ErrorCode.INVALID_STATE, "Only DRAFT quizzes can be changed");
+        }
+        return quiz;
     }
 
     private QuizContextRepository.LessonContext lesson(Long lessonId) {
