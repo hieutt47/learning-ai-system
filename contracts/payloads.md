@@ -20,7 +20,7 @@ Field dưới đây là thiết kế; khi viết OpenAPI phải khai báo requir
 | LessonWrite | title, video_url, transcript_text nullable, order_index | Lesson: id, course_id, title, normalized video_url, order_index, created_at; transcript_text chỉ owner |
 | Document | multipart file | id, lesson_id, original_name, media_type, size_bytes, created_at; không storage_key/extracted_text |
 | QuizWrite | title, generation_id nullable | QuizAuthor: id, lesson_id, title, status, created_at, questions[] |
-| QuestionWrite | content, explanation nullable, order_index, options[{content,is_correct,order_index}], generation_id nullable | QuestionAuthor: id, content, explanation, options[{id,content,is_correct,order_index}], generated_by_ai |
+| QuestionWrite | content, explanation nullable, order_index, options[{content,is_correct,order_index}], generation_id nullable | QuestionAuthor: id, content, explanation, order_index, options[{id,content,is_correct,order_index}], generated_by_ai |
 | QuizStudent | Không ghi | id, lesson_id, title, status, questions[{id,content,order_index,options[{id,content,order_index}]}] |
 | QuizSummary | Không ghi | id, lesson_id, title, status, question_count |
 | Status | status=PUBLISHED hoặc CLOSED | QuizAuthor/Card; transition được kiểm tra |
