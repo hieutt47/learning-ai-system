@@ -3,6 +3,7 @@ package vn.edu.learningai.security.custom;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import vn.edu.learningai.common.enums.UserRole;
 import vn.edu.learningai.entity.User;
 
 import java.util.Collection;
@@ -86,5 +87,16 @@ public class CustomUserDetails implements UserDetails {
     @Override
     public boolean isEnabled() {
         return isActive;
+    }
+
+    /**
+     * Application role, derived from the single authority built in {@link #build}.
+     *
+     * <p>Services check roles after Security has already let the request through;
+     * reading it from the authority keeps one source of truth for the role
+     * instead of a second field that could drift.</p>
+     */
+    public UserRole getRole() {
+        return UserRole.valueOf(authorities.iterator().next().getAuthority().substring("ROLE_".length()));
     }
 }

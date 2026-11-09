@@ -60,6 +60,10 @@ public class SecurityConfig {
                     "/api/v1/auth/register", "/api/v1/auth/login",
                     "/api/v1/auth/refresh", "/api/v1/auth/logout").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/categories").permitAll()
+                // Thumbnails are public: they appear in the guest marketplace response.
+                // Storage keys are unguessable and the route checks that a course still
+                // references the key, so this is not an open file server.
+                .requestMatchers(HttpMethod.GET, "/api/v1/files/*").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/courses", "/api/v1/courses/*").permitAll()
 
 
