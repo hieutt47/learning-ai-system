@@ -131,6 +131,53 @@ class QuizControllerTest {
         verifyNoInteractions(service);
     }
 
+    private String questionBody() {
+        return """
+            {"content":"Question","explanation":null,"order_index":4,"options":[
+              {"content":"A","is_correct":true,"order_index":0},
+              {"content":"B","is_correct":false,"order_index":1}]}
+            """;
+    }
+
+    @Test
+    void addQuestionReturns201AndLocation() throws Exception {
+        when(service.addQuestion(eq(30L), any())).thenReturn(new QuizAuthorResponse.QuestionAuthor(
+            "50", "Question", null, 4, false, List.of()));
+        mvc.perform(post("/api/v1/quizzes/30/questions").contentType(MediaType.APPLICATION_JSON).content(questionBody()))
+            .andExpect(status().isCreated()).andExpect(header().string("Location", "/api/v1/questions/50"))
+            .andExpect(jsonPath("$.generated_by_ai").value(false));
+    }
+
+    @Test
+    void replaceQuestionReturns200() throws Exception {
+        when(service.replaceQuestion(eq(50L), any())).thenReturn(new QuizAuthorResponse.QuestionAuthor(
+            "50", "Question", null, 4, false, List.of()));
+        mvc.perform(put("/api/v1/questions/50").contentType(MediaType.APPLICATION_JSON).content(questionBody()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.order_index").value(4));
+    }
+
+    @Test
+    void deleteQuestionReturns204() throws Exception {
+        mvc.perform(delete("/api/v1/questions/50")).andExpect(status().isNoContent());
+        verify(service).deleteQuestion(50L);
+    }
+
+    @Test
+    void duplicateOptionPositionRetains409ThroughJsonBinding() throws Exception {
+        mvc.perform(post("/api/v1/quizzes/30/questions").contentType(MediaType.APPLICATION_JSON)
+                .content(questionBody().replace("\"order_index\":1", "\"order_index\":0")))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("INVALID_STATE"));
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void invalidOptionsAreRejectedBeforeService() throws Exception {
+        mvc.perform(put("/api/v1/questions/50").contentType(MediaType.APPLICATION_JSON)
+                .content(questionBody().replace("\"is_correct\":true", "\"is_correct\":false")))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        verifyNoInteractions(service);
+    }
+
     @Test
     void enrollmentErrorKeeps403AndCode() throws Exception {
         when(service.get(30L)).thenThrow(new ApiException(ErrorCode.ENROLLMENT_REQUIRED));

@@ -21,6 +21,11 @@ public class QuizExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<QuizError> handleInvalidBody(HttpMessageNotReadableException exception) {
+        for (Throwable cause = exception.getCause(); cause != null; cause = cause.getCause()) {
+            if (cause instanceof ApiException api) {
+                return error(api.getErrorCode(), api.getMessage());
+            }
+        }
         return error(ErrorCode.VALIDATION_ERROR, "Request body is missing or invalid");
     }
 
