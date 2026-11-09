@@ -31,6 +31,7 @@ export const paths = {
   teachingCourse: (courseId: Id) => `/teaching/courses/${courseId}`,
   teachingCourseLessons: (courseId: Id) => `/teaching/courses/${courseId}/lessons`,
   teachingCourseStudents: (courseId: Id) => `/teaching/courses/${courseId}/students`,
+  teachingLessonNew: (courseId: Id) => `/teaching/lessons/new?courseId=${courseId}`,
   /** Bài học, tab Nội dung / Quiz / AI & Flashcard (prototype: tlesson, tquizzes, tai). */
   teachingLesson: (lessonId: Id) => `/teaching/lessons/${lessonId}`,
   teachingLessonQuizzes: (lessonId: Id) => `/teaching/lessons/${lessonId}/quizzes`,
