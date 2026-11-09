@@ -23,11 +23,11 @@ public class AiController {
 
     @PostMapping("/generate-quiz")
     public QuizCandidateResponse generateQuiz(@Valid @RequestBody GenerationRequest request) {
-        return aiGenerationService.generateQuiz(currentUserProvider.currentUserId(), request);
+        return aiGenerationService.generateQuiz(currentUserProvider.get().userId(), request);
     }
 
     @PostMapping("/generate-flashcards")
     public CardCandidateResponse generateFlashcards(@Valid @RequestBody GenerationRequest request) {
-        return aiGenerationService.generateFlashcards(currentUserProvider.currentUserId(), request);
+        return aiGenerationService.generateFlashcards(currentUserProvider.get().userId(), request);
     }
 }
