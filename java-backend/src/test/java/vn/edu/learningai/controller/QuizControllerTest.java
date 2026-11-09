@@ -13,6 +13,7 @@ import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 import vn.edu.learningai.common.enums.QuizStatus;
 import vn.edu.learningai.dto.request.CreateQuizRequest;
+import vn.edu.learningai.dto.request.UpdateQuizRequest;
 import vn.edu.learningai.dto.response.PageResponse;
 import vn.edu.learningai.dto.response.QuizAuthorResponse;
 import vn.edu.learningai.exception.ApiException;
@@ -87,6 +88,46 @@ class QuizControllerTest {
     void invalidPageReturns400(String page) throws Exception {
         mvc.perform(get("/api/v1/lessons/10/quizzes").param("page", page))
             .andExpect(status().isBadRequest());
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void patchReturnsUpdatedAuthorView() throws Exception {
+        when(service.update(eq(30L), any())).thenReturn(new QuizAuthorResponse("30", "10", "Updated",
+            QuizStatus.DRAFT, Instant.parse("2026-11-09T00:00:00Z"), List.of()));
+        mvc.perform(patch("/api/v1/quizzes/30").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"Updated\",\"generation_id\":null}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.title").value("Updated"));
+        verify(service).update(30L, new UpdateQuizRequest("Updated", null));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "null", "[]", "{\"title\":null}", "{\"status\":\"PUBLISHED\"}",
+        "{\"generation_id\":123}"})
+    void invalidPatchReturns400(String body) throws Exception {
+        mvc.perform(patch("/api/v1/quizzes/30").contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void deleteReturns204WithoutBody() throws Exception {
+        mvc.perform(delete("/api/v1/quizzes/30")).andExpect(status().isNoContent())
+            .andExpect(content().string(""));
+        verify(service).delete(30L);
+    }
+
+    @Test
+    void deleteWithHistoryReturns409() throws Exception {
+        doThrow(new ApiException(ErrorCode.RESOURCE_IN_USE)).when(service).delete(30L);
+        mvc.perform(delete("/api/v1/quizzes/30")).andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("RESOURCE_IN_USE"))
+            .andExpect(jsonPath("$.details").isArray()).andExpect(jsonPath("$.request_id").isNotEmpty());
+    }
+
+    @Test
+    void invalidDeleteIdDoesNotCallService() throws Exception {
+        mvc.perform(delete("/api/v1/quizzes/0")).andExpect(status().isBadRequest());
         verifyNoInteractions(service);
     }
 
