@@ -20,6 +20,7 @@ export interface Page<T> {
 export interface PageParams {
   page?: number
   page_size?: number
+  sort?: string
 }
 
 /** Mã lỗi baseline trong api-conventions.md (backend có thể trả thêm mã khác). */
