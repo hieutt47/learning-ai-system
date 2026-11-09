@@ -1,10 +1,17 @@
 import { Navigate, Outlet, useLocation } from 'react-router'
 import { useCurrentUser, type ViewerRole } from '../auth/currentUser'
-import { ForbiddenState } from '../components/PageState'
+import { restoreSession } from '../auth/session'
+import { ErrorState, ForbiddenState, LoadingState } from '../components/PageState'
 import { homePathFor, paths } from './paths'
 
 export function HomeRedirect() {
-  const { role } = useCurrentUser()
+  const { role, isLoading, error } = useCurrentUser()
+  if (isLoading) {
+    return <LoadingState tip="Đang kiểm tra phiên đăng nhập…" />
+  }
+  if (error) {
+    return <ErrorState error={error} onRetry={() => void restoreSession()} />
+  }
   return <Navigate to={homePathFor(role)} replace />
 }
 
@@ -15,9 +22,15 @@ export function HomeRedirect() {
  * Khách vào trang cần đăng nhập → chuyển sang /login, giữ trang đích; sai vai trò → trang 403.
  */
 export function RequireAccess({ allow }: { allow: 'auth' | Exclude<ViewerRole, 'GUEST'>[] }) {
-  const { role } = useCurrentUser()
+  const { role, isLoading, error } = useCurrentUser()
   const { pathname, search } = useLocation()
 
+  if (isLoading) {
+    return <LoadingState tip="Đang kiểm tra phiên đăng nhập…" />
+  }
+  if (error) {
+    return <ErrorState error={error} onRetry={() => void restoreSession()} />
+  }
   if (role === 'GUEST') {
     return <Navigate to={`${paths.login}?redirect=${encodeURIComponent(pathname + search)}`} replace />
   }
@@ -27,8 +40,27 @@ export function RequireAccess({ allow }: { allow: 'auth' | Exclude<ViewerRole, '
   return <Outlet />
 }
 
-/** Trang chỉ cho khách (đăng nhập, đăng ký): đã đăng nhập thì về trang chủ. */
+function loginDestination(search: string, role: ViewerRole): string {
+  const redirect = new URLSearchParams(search).get('redirect')
+  if (redirect?.startsWith('/')) {
+    try {
+      const url = new URL(redirect, window.location.origin)
+      const pathname = url.pathname.replace(/\/+$/, '').toLowerCase()
+      if (url.origin === window.location.origin && pathname !== paths.login && pathname !== paths.register) {
+        return url.pathname + url.search + url.hash
+      }
+    } catch {
+      return homePathFor(role)
+    }
+  }
+  return homePathFor(role)
+}
+
 export function GuestOnly() {
-  const { role } = useCurrentUser()
-  return role === 'GUEST' ? <Outlet /> : <HomeRedirect />
+  const { role, isLoading } = useCurrentUser()
+  const { search } = useLocation()
+  if (isLoading) {
+    return <LoadingState tip="Đang kiểm tra phiên đăng nhập…" />
+  }
+  return role === 'GUEST' ? <Outlet /> : <Navigate to={loginDestination(search, role)} replace />
 }

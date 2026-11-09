@@ -25,12 +25,12 @@ npm run dev                  # http://localhost:5173
 Khi dev, mọi request `/api/...` đi qua proxy của Vite tới backend (`http://localhost:8080`, đổi bằng biến `VITE_DEV_BACKEND`), nên không cần cấu hình CORS. Biến môi trường trong `.env.example`:
 
 - `VITE_API_BASE_URL`: gốc API, mặc định `/api/v1`.
-- `VITE_DEV_USER_ID`: **chỉ khi dev, trong lúc auth chưa merge** — backend đang dùng stub đọc header `X-User-Id`. Bỏ khi có JWT.
-- `VITE_DEV_ROLE`: vai trò để hiện menu và chặn trang (`GUEST | STUDENT | TEACHER | ADMIN`) khi chưa có `GET /users/me`; `VITE_DEV_USER_NAME`: tên ở ô tài khoản.
 
-Vite chỉ đọc `.env.local` (không đọc `.env.example`); đổi file thì dev server tự khởi động lại.
+Sao chép `.env.example` thành `.env.local`; đổi file thì dev server tự khởi động lại.
 
-**Trang dev `/dev/screens`** (link "Danh sách màn hình" cuối sidebar, chỉ có khi `npm run dev`): mở nhanh mọi màn trong lúc chưa có nút điều hướng, và đổi vai trò xem giao diện (Khách / Sinh viên / Giảng viên / Admin) mà không phải sửa `.env.local`.
+**Trang dev `/dev/screens`** (link "Danh sách màn hình" cuối sidebar, chỉ có khi `npm run dev`): mở nhanh mọi màn và xem quyền truy cập. Vai trò lấy từ tài khoản đăng nhập thật, không dùng `VITE_DEV_*` hoặc header `X-User-Id`.
+
+Đăng nhập giữ access token trong bộ nhớ, lấy thông tin tài khoản từ `GET /users/me`. Khi tải lại trang, frontend gọi `POST /auth/refresh` bằng cookie HttpOnly để khôi phục phiên. Request có access token gặp 401 sẽ refresh rồi thử lại một lần; các request đồng thời dùng chung một lần refresh. Login, register, refresh và logout dùng `{ auth: false }`, không gửi Authorization. Đăng ký thành công chuyển về đăng nhập. Logout chờ khôi phục phiên hoặc refresh đang chạy kết thúc trước khi gửi request; khi nhận 204, xóa access token, thông tin user và cache rồi chuyển về Khám phá. Nếu logout thất bại, hiển thị lỗi để thử lại. Sáu màn của người 1 đã nối API: đăng nhập, đăng ký, hồ sơ, quản lý user, duyệt giảng viên và danh mục.
 
 ## Cấu trúc
 
@@ -40,9 +40,11 @@ src/
   index.css                  Nạp styles/tokens.css + styles/shell.css
   shared/
     api/client.ts            Gọi API: base URL, Authorization, đọc lỗi {code, message, details}, 401 → đăng nhập
-    api/types.ts             Id (string), Page<T>, ApiErrorBody, mã lỗi
+    api/types.ts             Id (string), Page<T>, PageParams, ApiErrorBody, mã lỗi
     api/queryClient.ts       GET thử lại 1 lần (trừ 4xx); POST/PATCH/DELETE không tự thử lại
-    auth/currentUser.ts      Người đang xem (tạm đọc VITE_DEV_*), nhãn vai trò
+    auth/currentUser.ts      Người đang đăng nhập thật, nhãn vai trò, trạng thái kiểm tra phiên
+    auth/session.ts          Access token trong bộ nhớ, đăng nhập, khôi phục phiên và đăng xuất
+    auth/types.ts            Kiểu User, LoginRequest, RegisterRequest, ProfileRequest, AuthResponse
     routing/paths.ts         Đường dẫn các trang + trang chủ theo vai trò — dùng khi điều hướng, không tự ghép URL
     routing/screens.ts       Danh sách TẤT CẢ màn hình: tiêu đề, người phụ trách, màn prototype, quyền
     routing/router.tsx       Bảng route: tiêu đề, tab, quyền truy cập
@@ -54,9 +56,13 @@ src/
     dev/DevScreensPage.tsx   Trang /dev/screens (chỉ khi dev)
     styles/tokens.css        Biến màu sáng/tối của prototype + --ai-* (màu AI)
     styles/shell.css         CSS khung app chép từ prototype (giữ tên class)
+    styles/management.css    Bố cục hồ sơ, bảng quản trị và chi tiết yêu cầu
+    utils/format.ts          Hiển thị timestamp UTC theo giờ địa phương
     theme/                   Theme Ant Design khớp token; chế độ sáng/tối (useThemeMode)
   features/
     auth/  marketplace/  learning/  teaching/  admin/   Màn hình theo khu vực
+    teacher-requests/        API, kiểu dữ liệu, gửi yêu cầu và lịch sử dùng chung
+    categories/              API và kiểu dữ liệu danh mục
 ```
 
 ## Thêm một màn hình
@@ -93,12 +99,12 @@ Mỗi màn làm theo màn cùng tên trong `prototype.html` (cột Prototype: m�
 | Màn | Route | Prototype | Việc cần làm |
 |---|---|---|---|
 | Đăng nhập | `/login` | `#login` | Form email + mật khẩu, bố cục chia đôi như prototype. `POST /auth/login`, lưu token theo thiết kế auth rồi nối `setAccessTokenProvider`; xong quay về `?redirect=`. Lỗi sai mật khẩu, `ACCOUNT_INACTIVE`. |
-| Đăng ký | `/register` | `#register` | Họ tên, email, mật khẩu 10–128 ký tự. `POST /auth/register`; lỗi `EMAIL_ALREADY_EXISTS` hiện dưới field. |
-| Hồ sơ | `/profile` | `#profile` | Khối Thông tin cá nhân (`PATCH /users/me`, Hủy/Lưu), Trở thành giảng viên (chỉ sinh viên, `POST /teacher-requests`), Lịch sử yêu cầu (`GET /teacher-requests/me`). |
-| Người dùng | `/admin/users` | `#admusers` | Bảng Họ tên / Vai trò / Trạng thái / Ngày tạo, tìm và lọc, phân trang. Khóa / Mở khóa (`PATCH /users/{id}/status`) có modal xác nhận "Khóa tài khoản?". `GET /users`. |
-| Duyệt giảng viên | `/admin/teacher-requests` | `#admreq` | Danh sách yêu cầu (Người gửi, Lý do, Ngày gửi) + khung Chi tiết yêu cầu; Duyệt / Từ chối (bắt buộc ghi chú khi từ chối). `GET /teacher-requests`, `PATCH /teacher-requests/{id}/decision`. |
-| Danh mục | `/admin/categories` | `#admcat` | Bảng Tên / Mô tả / Số khóa học đang dùng; modal Thêm/Sửa; xóa có xác nhận; `RESOURCE_IN_USE` → modal "Không thể xóa danh mục". `GET/POST/PATCH/DELETE /categories`. |
-| Phần chung về auth | — | — | Thay `useCurrentUser` (đang đọc `VITE_DEV_*`) bằng `GET /users/me`; nút Đăng xuất trong menu tài khoản gọi `POST /auth/logout`; bỏ header `X-User-Id` trong `api/client.ts`. |
+| Đăng ký | `/register` | `#register` | Họ tên, email, mật khẩu 10–72 ký tự, xác nhận mật khẩu chỉ dùng ở giao diện. `POST /auth/register`; lỗi `EMAIL_ALREADY_EXISTS` hiện dưới field; thành công chuyển về Đăng nhập. |
+| Hồ sơ | `/profile` | `#profile` | Thông tin cá nhân (`GET/PATCH /users/me`, Hủy/Lưu); tên trên menu cập nhật sau khi lưu. Sinh viên gửi `POST /teacher-requests`, chặn gửi khi có PENDING. Lịch sử `GET /teacher-requests/me` có phân trang, hiển thị cho cả người đã được duyệt thành Teacher. |
+| Người dùng | `/admin/users` | `#admusers` | Bảng Họ tên / Email / Mã user / Vai trò / Trạng thái / Ngày tạo; phân trang và sắp xếp qua `GET /users`. Khóa / Mở khóa (`PATCH /users/{id}/status`) có modal xác nhận; chặn tự khóa trên giao diện. API hiện chưa có tham số tìm kiếm hoặc lọc vai trò/trạng thái. |
+| Duyệt giảng viên | `/admin/teacher-requests` | `#admreq` | Danh sách phân trang, lọc trạng thái và sắp xếp; chọn dòng để xem chi tiết, duyệt/từ chối (giao diện yêu cầu ghi chú khi từ chối). Người gửi hiển thị `user_id` vì response chưa có tên/email; không tìm kiếm theo tên/email. `GET /teacher-requests`, `PATCH /teacher-requests/{id}/decision`; xử lý 404/409 bằng tải lại danh sách. |
+| Danh mục | `/admin/categories` | `#admcat` | Bảng Mã / Tên / Mô tả, phân trang và sắp xếp; modal Thêm/Sửa; mô tả rỗng gửi chuỗi rỗng, không xóa bằng null. Xóa có xác nhận; `RESOURCE_IN_USE` → modal "Không thể xóa danh mục". Response chưa có số khóa học sử dụng và API chưa hỗ trợ tìm kiếm tên. `GET/POST/PATCH/DELETE /categories`. |
+| Phần chung về auth | — | — | `useCurrentUser` lấy tài khoản từ `GET /users/me`; nút Đăng xuất gọi `POST /auth/logout` chỉ dùng cookie, không body/Authorization; thành công xóa phiên và cache, chuyển về Khám phá; lỗi cho thử lại; không gửi header `X-User-Id`. |
 
 ### Người 2 — Khóa học & ghi danh
 
@@ -195,5 +201,5 @@ Sidebar, logo, tab trong trang, menu tài khoản, chuyển về `/login?redirec
 - Ẩn nút theo quyền chỉ phục vụ UI; backend vẫn kiểm tra quyền.
 - Màn giảng viên xem trước câu hỏi khác màn học viên làm bài để không lộ đáp án.
 - Không đưa AI key, JWT signing secret hay secret nào vào frontend (mọi biến `VITE_*` đều lộ ra trình duyệt).
-- Chưa mặc định lưu refresh token trong localStorage; cách lưu token chốt cùng phần auth, gắn vào client bằng `setAccessTokenProvider`.
+- Access token giữ trong bộ nhớ, gắn vào client bằng `setAccessTokenProvider`; refresh token chỉ nằm trong cookie HttpOnly do backend thiết lập.
 - File trong `src/shared/` dùng chung cả nhóm: sửa thì nêu trong PR.
