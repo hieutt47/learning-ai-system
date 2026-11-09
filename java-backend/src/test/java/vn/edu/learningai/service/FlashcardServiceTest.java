@@ -3,6 +3,7 @@ package vn.edu.learningai.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
+import org.mockito.MockMakers;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -26,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.withSettings;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -45,7 +47,8 @@ class FlashcardServiceTest {
     void setUp() {
         repository = mock(FlashcardRepository.class);
         access = mock(LessonAccessPolicy.class);
-        aiGenerationService = mock(AiGenerationService.class);
+        // Dự án dùng mock-maker-proxy (chỉ mock interface); class thì chọn riêng mock maker kiểu lớp con.
+        aiGenerationService = mock(AiGenerationService.class, withSettings().mockMaker(MockMakers.SUBCLASS));
         when(repository.save(any())).thenAnswer(inv -> {
             Flashcard f = inv.getArgument(0);
             if (f.getId() == null) {
