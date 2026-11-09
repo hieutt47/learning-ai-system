@@ -23,6 +23,9 @@ import { GuestOnly, HomeRedirect, RequireAccess } from './guards'
 import { paths } from './paths'
 import type { RouteHandle, TabItem } from './routeHandle'
 import { SCREENS, type ScreenKey } from './screens'
+import { LessonAiPage } from '../../features/teaching/ai/LessonAiPage'
+import { AiPreviewPage } from '../../features/teaching/ai/AiPreviewPage'
+import { LearnFlashcardsPage } from '../../features/learning/flashcards/LearnFlashcardsPage'
 
 /**
  * Bảng route của cả app, theo các màn (VIEWS), tab (tabsBar) và quyền (ACCESS) trong
@@ -126,7 +129,11 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <LearningDocumentsPage /> },
               { path: 'quiz', ...todo('learnQuiz') },
-              { path: 'flashcards', ...todo('learnFlashcards') },
+              {
+                path: 'flashcards',
+                element: <LearnFlashcardsPage />,
+                handle: { title: 'Học bài · Flashcard' } satisfies RouteHandle,
+              },
             ],
           },
           { path: '/quizzes/:quizId', ...todo('takeQuiz') },
@@ -161,8 +168,16 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <LessonEditorPage /> },
               { path: 'quizzes', ...todo('lessonQuizzes') },
-              { path: 'ai', ...todo('lessonAi') },
-              { path: 'ai/preview', ...todo('aiPreview') },
+              {
+                path: 'ai',
+                element: <LessonAiPage />,
+                handle: { title: 'Soạn bài học · AI & Flashcard' } satisfies RouteHandle,
+              },
+              {
+                path: 'ai/preview',
+                element: <AiPreviewPage />,
+                handle: { title: 'Xem trước kết quả AI' } satisfies RouteHandle,
+              },
             ],
           },
           { path: '/teaching/quizzes/:quizId/edit', ...todo('quizEditor') },
