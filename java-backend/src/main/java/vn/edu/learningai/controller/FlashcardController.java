@@ -35,29 +35,29 @@ public class FlashcardController {
     public PageResponse<CardResponse> listFlashcards(@PathVariable Long lessonId,
                                                      @RequestParam(defaultValue = "1") int page,
                                                      @RequestParam(name = "page_size", defaultValue = "20") int pageSize) {
-        return flashcardService.listFlashcards(lessonId, currentUserProvider.currentUserId(), page, pageSize);
+        return flashcardService.listFlashcards(lessonId, currentUserProvider.get().userId(), page, pageSize);
     }
 
     @PostMapping("/lessons/{lessonId}/flashcards")
     public ResponseEntity<CardResponse> createFlashcard(@PathVariable Long lessonId,
                                                         @Valid @RequestBody CardWriteRequest request) {
-        CardResponse card = flashcardService.saveDraft(lessonId, currentUserProvider.currentUserId(), request);
+        CardResponse card = flashcardService.saveDraft(lessonId, currentUserProvider.get().userId(), request);
         return ResponseEntity.created(URI.create("/api/v1/flashcards/" + card.id())).body(card);
     }
 
     @PatchMapping("/flashcards/{cardId}")
     public CardResponse updateFlashcard(@PathVariable Long cardId, @Valid @RequestBody CardUpdateRequest request) {
-        return flashcardService.updateDraft(cardId, currentUserProvider.currentUserId(), request);
+        return flashcardService.updateDraft(cardId, currentUserProvider.get().userId(), request);
     }
 
     @DeleteMapping("/flashcards/{cardId}")
     public ResponseEntity<Void> deleteFlashcard(@PathVariable Long cardId) {
-        flashcardService.deleteDraft(cardId, currentUserProvider.currentUserId());
+        flashcardService.deleteDraft(cardId, currentUserProvider.get().userId());
         return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/flashcards/{cardId}/publication")
     public CardResponse publishFlashcard(@PathVariable Long cardId, @Valid @RequestBody StatusRequest request) {
-        return flashcardService.changeStatus(cardId, currentUserProvider.currentUserId(), request.status());
+        return flashcardService.changeStatus(cardId, currentUserProvider.get().userId(), request.status());
     }
 }
