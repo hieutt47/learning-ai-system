@@ -20,7 +20,6 @@ public interface AuthSessionRepository extends JpaRepository<AuthSession, Long> 
            """)
     public void revokeAllForUser(@Param("userId") Long userId, @Param("now") Instant now);
 
-
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     public Optional<AuthSession> findByRefreshTokenHash(String refreshTokenHash);
 }

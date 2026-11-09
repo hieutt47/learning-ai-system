@@ -15,34 +15,23 @@ import vn.edu.learningai.storage.StoredFileContent;
 
 import java.time.Duration;
 
-/**
- * Serves stored files through a permission-checked route instead of a static
- * directory, so the storage layout and disk paths never leak.
- */
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1")
 public class FileController {
     private final FileAccessService fileAccessService;
-
     @GetMapping("/files/{storageKey}")
     public ResponseEntity<Resource> download(@PathVariable String storageKey) {
         StoredFileContent file = fileAccessService.getThumbnail(storageKey);
-
         MediaType mediaType = file.imageType()
             .map(FileController::mediaTypeOf)
-            // Bytes already passed magic-byte validation at upload time.
             .orElse(MediaType.APPLICATION_OCTET_STREAM);
-
         return ResponseEntity.ok()
             .contentType(mediaType)
-            // Keys are content-addressed per upload and immutable, so a long
-            // cache is safe and re-uploads get a new URL anyway.
             .cacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePublic())
             .header("X-Content-Type-Options", "nosniff")
             .body(file.resource());
     }
-
     private static MediaType mediaTypeOf(ImageType type) {
         return switch (type) {
             case PNG -> MediaType.IMAGE_PNG;

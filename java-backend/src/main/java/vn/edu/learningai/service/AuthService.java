@@ -51,7 +51,6 @@ public class AuthService {
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 
-
         String accessToken = jwtService.generateToken(userDetails);
         String refreshToken = refreshTokenService.createRefreshToken(userDetails.getId()).getRefreshToken();
 
@@ -69,7 +68,6 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setRole(UserRole.STUDENT);
         user.setIsActive(true);
-
 
         try {
             return userMapper.toUserResponse(userRepository.save(user));

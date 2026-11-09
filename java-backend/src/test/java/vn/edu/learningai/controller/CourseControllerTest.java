@@ -11,14 +11,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * COURSE-01 over HTTP against the real schema (test scenarios T09/T10 groundwork).
- * Users: 1 admin, 2 teacher A, 3 teacher B, 4 student A, 5 inactive teacher.
- */
 class CourseControllerTest extends IntegrationTestBase {
-
     private static final String COURSES = "/api/v1/courses";
-
     @Test
     void teacherCreatesDraftCourse() throws Exception {
         mockMvc.perform(post(COURSES)
@@ -34,7 +28,6 @@ class CourseControllerTest extends IntegrationTestBase {
             .andExpect(jsonPath("$.category_id").value("1"))
             .andExpect(jsonPath("$.price").value("150000.00"));
     }
-
     @Test
     void studentCannotCreateCourse() throws Exception {
         mockMvc.perform(post(COURSES)
@@ -46,7 +39,6 @@ class CourseControllerTest extends IntegrationTestBase {
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
-
     @Test
     void missingIdentityIsUnauthenticated() throws Exception {
         mockMvc.perform(post(COURSES)
@@ -57,12 +49,9 @@ class CourseControllerTest extends IntegrationTestBase {
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
     }
-
     @Test
     void inactiveAccountCannotLogInAndSoCannotCallAnything() throws Exception {
-        // The inactive fixture user cannot obtain a token at all, which is the
-        // stronger guarantee: there is no window in which a disabled account
-        // holds a usable credential.
+
         mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
@@ -70,7 +59,6 @@ class CourseControllerTest extends IntegrationTestBase {
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.code").value("ACCOUNT_INACTIVE"));
     }
-
     @Test
     void unknownCategoryIsNotFound() throws Exception {
         mockMvc.perform(post(COURSES)
@@ -82,7 +70,6 @@ class CourseControllerTest extends IntegrationTestBase {
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
-
     @Test
     void invalidPayloadIsValidationError() throws Exception {
         mockMvc.perform(post(COURSES)
@@ -96,7 +83,6 @@ class CourseControllerTest extends IntegrationTestBase {
             .andExpect(jsonPath("$.details").isArray())
             .andExpect(jsonPath("$.request_id").exists());
     }
-
     @Test
     void patchAppliesOnlyFieldsSent() throws Exception {
         mockMvc.perform(patch(COURSES + "/1")
@@ -109,7 +95,6 @@ class CourseControllerTest extends IntegrationTestBase {
             .andExpect(jsonPath("$.title").value("Khoa draft cua A"))
             .andExpect(jsonPath("$.price").value("42000.50"));
     }
-
     @Test
     void otherTeacherCannotPatchCourse() throws Exception {
         mockMvc.perform(patch(COURSES + "/1")
@@ -121,36 +106,31 @@ class CourseControllerTest extends IntegrationTestBase {
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
-
     @Test
     void ownerResponseCarriesLessonAndStudentCounts() throws Exception {
-        // Course 2: two lessons, one enrolled student (fixture).
+
         mockMvc.perform(get("/api/v1/teaching/courses/2").header("Authorization", "Bearer " + tokenFor(2)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.lesson_count").value(2))
             .andExpect(jsonPath("$.total_students").value(1));
     }
-
     @Test
     void courseListIncludesCountsForEveryRow() throws Exception {
-        // Teacher A owns courses 1 (no lessons, no students) and 2 (two and one).
+
         String body = mockMvc.perform(get("/api/v1/teaching/courses").header("Authorization", "Bearer " + tokenFor(2)))
             .andExpect(status().isOk())
             .andReturn().getResponse().getContentAsString();
-
         java.util.List<java.util.Map<String, Object>> items =
             com.jayway.jsonpath.JsonPath.read(body, "$.items");
         java.util.Map<String, Object> course1 = items.stream()
             .filter(item -> "1".equals(item.get("id"))).findFirst().orElseThrow();
         java.util.Map<String, Object> course2 = items.stream()
             .filter(item -> "2".equals(item.get("id"))).findFirst().orElseThrow();
-
         org.assertj.core.api.Assertions.assertThat(course1.get("lesson_count")).isEqualTo(0);
         org.assertj.core.api.Assertions.assertThat(course1.get("total_students")).isEqualTo(0);
         org.assertj.core.api.Assertions.assertThat(course2.get("lesson_count")).isEqualTo(2);
         org.assertj.core.api.Assertions.assertThat(course2.get("total_students")).isEqualTo(1);
     }
-
     @Test
     void teacherListsOnlyOwnCourses() throws Exception {
         mockMvc.perform(get("/api/v1/teaching/courses").header("Authorization", "Bearer " + tokenFor(2)))
@@ -160,14 +140,12 @@ class CourseControllerTest extends IntegrationTestBase {
             .andExpect(jsonPath("$.page").value(1))
             .andExpect(jsonPath("$.page_size").value(20));
     }
-
     @Test
     void adminListsAllCourses() throws Exception {
         mockMvc.perform(get("/api/v1/teaching/courses").header("Authorization", "Bearer " + tokenFor(1)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.total").value(5));
     }
-
     @Test
     void invalidPaginationIsValidationError() throws Exception {
         mockMvc.perform(get("/api/v1/teaching/courses")
@@ -176,7 +154,6 @@ class CourseControllerTest extends IntegrationTestBase {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
-
     @Test
     void nonNumericPaginationIsValidationError() throws Exception {
         mockMvc.perform(get("/api/v1/teaching/courses")
@@ -186,16 +163,13 @@ class CourseControllerTest extends IntegrationTestBase {
             .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
             .andExpect(jsonPath("$.request_id").exists());
     }
-
     @Test
     void deleteDraftCourseSucceeds() throws Exception {
         mockMvc.perform(delete(COURSES + "/1").header("Authorization", "Bearer " + tokenFor(2)))
             .andExpect(status().isNoContent());
-
         mockMvc.perform(get("/api/v1/teaching/courses/1").header("Authorization", "Bearer " + tokenFor(2)))
             .andExpect(status().isNotFound());
     }
-
     @Test
     void deletePublishedCourseIsInvalidState() throws Exception {
         mockMvc.perform(delete(COURSES + "/2").header("Authorization", "Bearer " + tokenFor(2)))

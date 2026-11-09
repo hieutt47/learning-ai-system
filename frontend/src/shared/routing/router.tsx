@@ -17,7 +17,7 @@ import { NotFoundState } from '../components/PageState'
 import { PlaceholderPage } from '../components/PlaceholderPage'
 import { RouteErrorPage } from '../components/RouteErrorPage'
 import { DevScreensPage } from '../dev/DevScreensPage'
-import { GuestOnly, HomeRedirect, RequireAccess } from './guards'
+import { HomeRedirect, RequireAccess } from './guards'
 import { paths } from './paths'
 import type { RouteHandle, TabItem } from './routeHandle'
 import { SCREENS, type ScreenKey } from './screens'
@@ -67,28 +67,20 @@ const devRoutes: RouteObject[] = import.meta.env.DEV
   : []
 
 export const router = createBrowserRouter([
-  // Đăng nhập / đăng ký: không có sidebar, chỉ cho khách
   {
-    element: <GuestOnly />,
+    element: <AuthLayout />,
     errorElement: <RouteErrorPage />,
     children: [
-      {
-        element: <AuthLayout />,
-        children: [
-          { path: paths.login, ...todo('login') },
-          { path: paths.register, ...todo('register') },
-        ],
-      },
+      { path: paths.login, ...todo('login') },
+      { path: paths.register, ...todo('register') },
     ],
   },
-
   {
     element: <AppLayout />,
     errorElement: <RouteErrorPage />,
     children: [
       { path: paths.home, element: <HomeRedirect /> },
       ...devRoutes,
-
       // Ai cũng xem được
       { path: paths.explore, element: <ExplorePage />, handle: { title: 'Khám phá khóa học', search: true } satisfies RouteHandle },
       {
@@ -96,10 +88,8 @@ export const router = createBrowserRouter([
         element: <CourseDetailPage />,
         handle: { title: 'Chi tiết khóa học', search: true } satisfies RouteHandle,
       },
-
       // Đã đăng nhập
       { element: <RequireAccess allow="auth" />, children: [{ path: paths.profile, ...todo('profile') }] },
-
       // Sinh viên
       {
         element: <RequireAccess allow={['STUDENT']} />,
@@ -121,7 +111,6 @@ export const router = createBrowserRouter([
           { path: paths.attempts, ...todo('attempts') },
         ],
       },
-
       // Giảng viên
       {
         element: <RequireAccess allow={['TEACHER']} />,
@@ -157,7 +146,6 @@ export const router = createBrowserRouter([
           { path: '/teaching/statistics/quizzes/:quizId', ...todo('quizStatistics') },
         ],
       },
-
       // Quản trị
       {
         element: <RequireAccess allow={['ADMIN']} />,
@@ -169,16 +157,15 @@ export const router = createBrowserRouter([
           { path: paths.adminStatistics, ...todo('adminStatistics') },
         ],
       },
-
       { path: '*', element: <NotFoundState />, handle: { title: 'Không tìm thấy trang' } satisfies RouteHandle },
     ],
   },
 ])
 
-// API trả 401 → về trang đăng nhập, giữ trang đích để quay lại sau khi đăng nhập (design-brief mục 8).
 setUnauthorizedHandler(() => {
   const { pathname, search } = window.location
-  if (pathname !== paths.login) {
-    void router.navigate(`${paths.login}?redirect=${encodeURIComponent(pathname + search)}`)
+  if (pathname === paths.login || pathname === paths.register) {
+    return
   }
+  void router.navigate(`${paths.login}?redirect=${encodeURIComponent(pathname + search)}`, { replace: true })
 })

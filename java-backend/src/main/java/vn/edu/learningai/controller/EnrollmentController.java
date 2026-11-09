@@ -23,7 +23,6 @@ public class EnrollmentController {
     private final EnrollmentService enrollmentService;
     private final CurrentUserProvider currentUserProvider;
 
-    /** 201 for a new membership, 200 when the student already had one. */
     @PostMapping("/courses/{id}/enroll")
     public ResponseEntity<EnrollmentResponse> enroll(@PathVariable Long id) {
         EnrollmentService.EnrollmentResult result =

@@ -34,13 +34,6 @@ import type { CourseFormValues, CourseStatus, OwnedCourse } from './course.types
 
 type Filter = 'all' | CourseStatus
 
-/**
- * Khóa học giảng dạy (prototype #teach): thẻ tổng quan + bảng khóa học với thao
- * tác Xuất bản / Gỡ xuất bản / Lưu trữ, và nút Tạo khóa học.
- *
- * Bảng lấy từ /teaching/courses, route mà admin cũng dùng được (thấy tất cả);
- * trang này không phân biệt, chỉ màn admin bọc thêm tiêu đề khác.
- */
 export function TeachingCoursesPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -48,7 +41,6 @@ export function TeachingCoursesPage() {
   const [filter, setFilter] = useState<Filter>('all')
   const [createOpen, setCreateOpen] = useState(false)
   const [form] = Form.useForm<CourseFormValues>()
-
   const coursesQuery = useQuery({
     queryKey: courseKeys.teaching,
     queryFn: () => listOwnedCourses({ page: 1, page_size: 100 }),
@@ -58,7 +50,6 @@ export function TeachingCoursesPage() {
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: courseKeys.teaching })
   }
-
   const createMutation = useMutation({
     mutationFn: (values: CourseFormValues) => createCourse(values),
     onSuccess: async (course) => {
@@ -70,7 +61,6 @@ export function TeachingCoursesPage() {
     },
     onError: (error: Error) => void message.error(error.message),
   })
-
   const publishMutation = useMutation({
     mutationFn: ({ id, published }: { id: string; published: boolean }) => setPublished(id, published),
     onSuccess: async (course) => {
@@ -79,7 +69,6 @@ export function TeachingCoursesPage() {
     },
     onError: (error: Error) => void message.error(error.message),
   })
-
   const archiveMutation = useMutation({
     mutationFn: (id: string) => archiveCourse(id),
     onSuccess: async () => {
@@ -88,10 +77,8 @@ export function TeachingCoursesPage() {
     },
     onError: (error: Error) => void message.error(error.message),
   })
-
   if (coursesQuery.isLoading) return <LoadingState tip="Đang tải khóa học…" />
   if (coursesQuery.isError) return <ErrorState error={coursesQuery.error} onRetry={() => void coursesQuery.refetch()} />
-
   const all = coursesQuery.data?.items ?? []
   const counts = {
     Draft: all.filter((course) => course.status === 'Draft').length,
@@ -100,7 +87,6 @@ export function TeachingCoursesPage() {
   }
   const visible = filter === 'all' ? all : all.filter((course) => course.status === filter)
   const totalStudents = all.reduce((sum, course) => sum + course.totalStudents, 0)
-
   const confirmArchive = (course: OwnedCourse) => {
     modal.confirm({
       title: 'Lưu trữ khóa học?',
@@ -111,7 +97,6 @@ export function TeachingCoursesPage() {
       onOk: () => archiveMutation.mutateAsync(course.id),
     })
   }
-
   const columns: TableProps<OwnedCourse>['columns'] = [
     {
       title: 'Khóa học',
@@ -187,7 +172,6 @@ export function TeachingCoursesPage() {
       ),
     },
   ]
-
   const createButton = (
     <Button type="primary" onClick={() => setCreateOpen(true)}>
       + Tạo khóa học
@@ -205,7 +189,6 @@ export function TeachingCoursesPage() {
         </Col>
         <Col>{createButton}</Col>
       </Row>
-
       <Row gutter={[16, 16]}>
         <Col xs={24} md={8}>
           <Card>
@@ -229,7 +212,6 @@ export function TeachingCoursesPage() {
           </Card>
         </Col>
       </Row>
-
       <Card
         title="Khóa học của tôi"
         extra={
@@ -261,7 +243,6 @@ export function TeachingCoursesPage() {
           />
         )}
       </Card>
-
       <Modal
         title="Tạo khóa học"
         open={createOpen}

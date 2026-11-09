@@ -18,7 +18,6 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
 
     long countByCourseId(Long courseId);
 
-    /** Lesson counts for a page of courses in one query. */
     @Query("SELECT l.courseId AS courseId, COUNT(l) AS total FROM Lesson l "
         + "WHERE l.courseId IN :courseIds GROUP BY l.courseId")
     List<CourseCountRow> countByCourseIds(@Param("courseIds") List<Long> courseIds);

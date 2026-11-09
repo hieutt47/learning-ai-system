@@ -10,16 +10,9 @@ import { formatDate } from './format'
 
 const PAGE_SIZE = 12
 
-/**
- * Khóa học của tôi (prototype #mycourses).
- *
- * Hai empty state tách biệt như prototype: chưa ghi danh khóa nào (mời đi khám
- * phá) khác với có ghi danh nhưng không khớp từ khóa tìm kiếm (chỉ nhắc thử lại).
- */
 export function MyCoursesPage() {
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
-
   const mineQuery = useQuery({
     queryKey: courseKeys.mine,
     queryFn: () => getMyCourses({ page: 1, page_size: 100 }),
@@ -27,7 +20,6 @@ export function MyCoursesPage() {
 
   if (mineQuery.isLoading) return <LoadingState tip="Đang tải khóa học của bạn…" />
   if (mineQuery.isError) return <ErrorState error={mineQuery.error} onRetry={() => void mineQuery.refetch()} />
-
   const all = mineQuery.data?.items ?? []
   const normalized = query.trim().toLowerCase()
   const filtered = normalized ? all.filter((course) => course.title.toLowerCase().includes(normalized)) : all
@@ -47,7 +39,6 @@ export function MyCoursesPage() {
       </Card>
     )
   }
-
   return (
     <Space orientation="vertical" size={20} style={{ width: '100%' }}>
       <Row gutter={[12, 12]} justify="space-between" align="middle">
@@ -70,7 +61,6 @@ export function MyCoursesPage() {
           />
         </Col>
       </Row>
-
       {filtered.length === 0 ? (
         <Card>
           <EmptyState description="Không có khóa học khớp. Thử từ khóa khác." />

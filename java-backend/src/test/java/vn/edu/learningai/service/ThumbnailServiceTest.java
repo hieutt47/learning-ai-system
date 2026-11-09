@@ -16,7 +16,6 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Unit-level rules: which bytes are accepted, and with which extension. */
 class ThumbnailServiceTest {
 
     private final List<String> storedExtensions = new ArrayList<>();

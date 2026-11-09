@@ -9,33 +9,21 @@ import type { CourseMember } from './course.types'
 
 const PAGE_SIZE = 20
 
-/**
- * Khóa học · Học viên (prototype #tstudents).
- *
- * Chỉ có họ tên và ngày ghi danh: backend cố ý không trả email cho chủ khóa
- * (contracts/payloads.md: "Member thêm full_name, không lộ email public").
- * Tìm kiếm chạy trên trang hiện tại; danh sách học viên một khóa thường nhỏ, và
- * backend chưa hỗ trợ lọc theo tên.
- */
 export function CourseStudentsPage() {
   const { courseId = '' } = useParams()
   const [page, setPage] = useState(1)
   const [query, setQuery] = useState('')
-
   const membersQuery = useQuery({
     queryKey: courseKeys.members(courseId, page),
     queryFn: () => getMembers(courseId, { page, page_size: PAGE_SIZE }),
     enabled: Boolean(courseId),
   })
-
   if (membersQuery.isLoading) return <LoadingState tip="Đang tải học viên…" />
   if (membersQuery.isError) return <ErrorState error={membersQuery.error} onRetry={() => void membersQuery.refetch()} />
-
   const members = membersQuery.data?.items ?? []
   const total = membersQuery.data?.total ?? 0
   const normalized = query.trim().toLowerCase()
   const visible = normalized ? members.filter((member) => member.fullName.toLowerCase().includes(normalized)) : members
-
   const columns: TableProps<CourseMember>['columns'] = [
     {
       title: 'Học viên',
@@ -56,7 +44,6 @@ export function CourseStudentsPage() {
       render: (value: string) => formatDateTime(value),
     },
   ]
-
   return (
     <Card
       title={`Học viên (${total})`}

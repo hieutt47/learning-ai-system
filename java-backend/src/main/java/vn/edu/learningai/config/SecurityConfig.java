@@ -55,23 +55,15 @@ public class SecurityConfig {
         httpSecurity
             .csrf((csrfConfigurer -> csrfConfigurer.disable()))
             .authorizeHttpRequests(auth -> auth
-
                 .requestMatchers(HttpMethod.POST,
                     "/api/v1/auth/register", "/api/v1/auth/login",
                     "/api/v1/auth/refresh", "/api/v1/auth/logout").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/categories").permitAll()
-                // Thumbnails are public: they appear in the guest marketplace response.
-                // Storage keys are unguessable and the route checks that a course still
-                // references the key, so this is not an open file server.
                 .requestMatchers(HttpMethod.GET, "/api/v1/files/*").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/courses", "/api/v1/courses/*").permitAll()
-
-
                 .requestMatchers(HttpMethod.GET,
                     "/api/v1/users/me", "/api/v1/teacher-requests/me").authenticated()
                 .requestMatchers(HttpMethod.PATCH, "/api/v1/users/me").authenticated()
-
-
                 .requestMatchers(HttpMethod.GET,
                     "/api/v1/users", "/api/v1/teacher-requests",
                     "/api/v1/statistics/system").hasRole("ADMIN")
@@ -80,15 +72,11 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/v1/categories").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PATCH, "/api/v1/categories/*").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/v1/categories/*").hasRole("ADMIN")
-
-
                 .requestMatchers(HttpMethod.POST,
                     "/api/v1/teacher-requests", "/api/v1/courses/*/enroll",
                     "/api/v1/quizzes/*/attempts", "/api/v1/attempts/*/submit").hasRole("STUDENT")
                 .requestMatchers(HttpMethod.GET,
                     "/api/v1/users/me/courses", "/api/v1/users/me/attempts").hasRole("STUDENT")
-
-
                 .requestMatchers(HttpMethod.GET,
                     "/api/v1/teaching/courses", "/api/v1/teaching/courses/*",
                     "/api/v1/courses/*/members", "/api/v1/statistics/courses/*",
@@ -110,15 +98,11 @@ public class SecurityConfig {
                     "/api/v1/courses/*", "/api/v1/lessons/*", "/api/v1/documents/*",
                     "/api/v1/quizzes/*", "/api/v1/questions/*", "/api/v1/flashcards/*")
                     .hasAnyRole("TEACHER", "ADMIN")
-
-
                 .requestMatchers(HttpMethod.GET,
                     "/api/v1/courses/*/lessons", "/api/v1/lessons/*",
                     "/api/v1/lessons/*/documents", "/api/v1/documents/*/content",
                     "/api/v1/lessons/*/quizzes", "/api/v1/quizzes/*",
                     "/api/v1/lessons/*/flashcards", "/api/v1/attempts/*").authenticated()
-
-
                 .anyRequest().denyAll())
             .sessionManagement(session -> session.sessionCreationPolicy((SessionCreationPolicy.STATELESS)))
             .exceptionHandling(ex -> ex
