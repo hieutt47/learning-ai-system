@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.edu.learningai.dto.request.CreateQuizRequest;
 import vn.edu.learningai.dto.request.UpdateQuizRequest;
 import vn.edu.learningai.dto.request.WriteQuestionRequest;
+import vn.edu.learningai.dto.request.QuizPublicationRequest;
 import vn.edu.learningai.dto.response.PageResponse;
 import vn.edu.learningai.dto.response.QuizAuthorResponse;
 import vn.edu.learningai.dto.response.QuizSummaryResponse;
@@ -80,6 +81,12 @@ public class QuizController {
     public ResponseEntity<Void> deleteQuestion(@PathVariable("question_id") String questionId) {
         quizService.deleteQuestion(positiveLong(questionId, "question_id"));
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/quizzes/{quiz_id}/publication")
+    public QuizAuthorResponse changePublication(@PathVariable("quiz_id") String quizId,
+                                                @RequestBody QuizPublicationRequest request) {
+        return quizService.changePublication(positiveLong(quizId, "quiz_id"), request);
     }
 
     private static long positiveLong(String value, String field) {

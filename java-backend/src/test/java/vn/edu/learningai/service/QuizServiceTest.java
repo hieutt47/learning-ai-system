@@ -18,6 +18,7 @@ import vn.edu.learningai.common.enums.UserRole;
 import vn.edu.learningai.dto.request.CreateQuizRequest;
 import vn.edu.learningai.dto.request.UpdateQuizRequest;
 import vn.edu.learningai.dto.request.WriteQuestionRequest;
+import vn.edu.learningai.dto.request.QuizPublicationRequest;
 import vn.edu.learningai.dto.response.QuizAuthorResponse;
 import vn.edu.learningai.dto.response.QuizStudentResponse;
 import vn.edu.learningai.entity.Question;
@@ -516,6 +517,80 @@ class QuizServiceTest {
         when(quizzes.findByIdForUpdate(30L)).thenReturn(Optional.of(quiz(status)));
         fails(ErrorCode.INVALID_STATE, () -> service.addQuestion(30L, questionRequest(null)));
         verifyNoInteractions(options);
+    }
+
+    @Test
+    void publishValidDraftSetsTimestampAndPreventsLaterEdits() {
+        actor(7L, UserRole.TEACHER);
+        lesson();
+        Quiz draft = quiz(QuizStatus.DRAFT);
+        when(quizzes.findByIdForUpdate(30L)).thenReturn(Optional.of(draft));
+        publicationContent(true);
+        Instant before = Instant.now();
+        var result = service.changePublication(30L, new QuizPublicationRequest(QuizStatus.PUBLISHED));
+        assertThat(result.status()).isEqualTo(QuizStatus.PUBLISHED);
+        assertThat(draft.getPublishedAt()).isBetween(before, Instant.now());
+        assertThat(draft.getClosedAt()).isNull();
+        fails(ErrorCode.INVALID_STATE, () -> service.update(30L, new UpdateQuizRequest("Changed", null)));
+        fails(ErrorCode.INVALID_STATE, () -> service.addQuestion(30L, questionRequest(null)));
+        verify(quizzes).flush();
+    }
+
+    @Test
+    void emptyDraftCannotBePublished() {
+        draftForQuestions();
+        fails(ErrorCode.INVALID_QUIZ, () -> service.changePublication(30L, new QuizPublicationRequest(QuizStatus.PUBLISHED)));
+        verify(quizzes, never()).flush();
+    }
+
+    @Test
+    void invalidStoredQuestionCannotBePublished() {
+        draftForQuestions();
+        publicationContent(false);
+        fails(ErrorCode.INVALID_QUIZ, () -> service.changePublication(30L, new QuizPublicationRequest(QuizStatus.PUBLISHED)));
+        verify(quizzes, never()).flush();
+    }
+
+    @Test
+    void closingKeepsPublishedTimestampAndDoesNotBlockOnExistingAttempts() {
+        actor(8L, UserRole.ADMIN);
+        lesson();
+        Quiz published = quiz(QuizStatus.PUBLISHED);
+        Instant publishedAt = Instant.parse("2026-11-09T00:00:00Z");
+        published.setPublishedAt(publishedAt);
+        when(quizzes.findByIdForUpdate(30L)).thenReturn(Optional.of(published));
+        assertThat(service.changePublication(30L, new QuizPublicationRequest(QuizStatus.CLOSED)).status()).isEqualTo(QuizStatus.CLOSED);
+        assertThat(published.getPublishedAt()).isEqualTo(publishedAt);
+        assertThat(published.getClosedAt()).isNotNull();
+        verify(context, never()).hasLearningHistory(any());
+        verifyNoInteractions(options);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"DRAFT,CLOSED", "PUBLISHED,PUBLISHED", "CLOSED,PUBLISHED", "CLOSED,CLOSED"})
+    void illegalAndRepeatedTransitionsAre409(QuizStatus current, QuizStatus target) {
+        actor(7L, UserRole.TEACHER);
+        lesson();
+        when(quizzes.findByIdForUpdate(30L)).thenReturn(Optional.of(quiz(current)));
+        fails(ErrorCode.INVALID_STATE, () -> service.changePublication(30L, new QuizPublicationRequest(target)));
+        verifyNoInteractions(questions, options);
+    }
+
+    @Test
+    void nonOwnerCannotPublish() {
+        actor(8L, UserRole.TEACHER);
+        lesson();
+        when(quizzes.findByIdForUpdate(30L)).thenReturn(Optional.of(quiz(QuizStatus.DRAFT)));
+        fails(ErrorCode.FORBIDDEN, () -> service.changePublication(30L, new QuizPublicationRequest(QuizStatus.PUBLISHED)));
+        verifyNoInteractions(questions, options);
+    }
+
+    private void publicationContent(boolean correct) {
+        Question question = Question.builder().id(50L).quizId(30L).content("Question").orderIndex(0).build();
+        when(questions.findByQuizIdOrderByOrderIndexAsc(30L)).thenReturn(List.of(question));
+        when(options.findByQuestionIdIn(List.of(50L))).thenReturn(List.of(
+            QuestionOption.builder().id(60L).questionId(50L).content("A").isCorrect(correct).orderIndex(0).build(),
+            QuestionOption.builder().id(61L).questionId(50L).content("B").isCorrect(false).orderIndex(1).build()));
     }
 
     private WriteQuestionRequest questionRequest(Long generationId) {
