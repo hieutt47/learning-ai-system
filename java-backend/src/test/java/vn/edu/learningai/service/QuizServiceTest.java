@@ -17,6 +17,7 @@ import vn.edu.learningai.common.enums.QuizStatus;
 import vn.edu.learningai.common.enums.UserRole;
 import vn.edu.learningai.dto.request.CreateQuizRequest;
 import vn.edu.learningai.dto.request.UpdateQuizRequest;
+import vn.edu.learningai.dto.request.WriteQuestionRequest;
 import vn.edu.learningai.dto.response.QuizAuthorResponse;
 import vn.edu.learningai.dto.response.QuizStudentResponse;
 import vn.edu.learningai.entity.Question;
@@ -383,6 +384,168 @@ class QuizServiceTest {
         var failure = new org.springframework.dao.DataIntegrityViolationException("Other failure");
         doThrow(failure).when(quizzes).flush();
         assertThatThrownBy(() -> service.delete(30L)).isSameAs(failure);
+    }
+
+    @Test
+    void addManualQuestionAndOptionsAfterLockingDraft() {
+        draftForQuestions();
+        when(questions.saveAndFlush(any())).thenAnswer(invocation -> {
+            Question question = invocation.getArgument(0);
+            question.setId(50L);
+            return question;
+        });
+        savedOptions();
+        var result = service.addQuestion(30L, questionRequest(null));
+        assertThat(result.generatedByAi()).isFalse();
+        assertThat(result.options()).hasSize(2);
+        var order = inOrder(quizzes, context, questions, options);
+        order.verify(quizzes).findByIdForUpdate(30L);
+        order.verify(context).findLesson(10L);
+        order.verify(context).hasLearningHistory(30L);
+        order.verify(questions).existsByQuizIdAndOrderIndex(30L, 4);
+        order.verify(questions).saveAndFlush(any());
+        order.verify(options).saveAllAndFlush(any());
+    }
+
+    @Test
+    void replacingOptionsFlushesDeletionsBeforeInsertingAndKeepsProvenance() {
+        draftForQuestions();
+        Question question = existingQuestion();
+        savedOptions();
+        var result = service.replaceQuestion(50L, questionRequest(null));
+        assertThat(question.getGenerationId()).isEqualTo(40L);
+        assertThat(result.generatedByAi()).isTrue();
+        assertThat(question.getOrderIndex()).isEqualTo(4);
+        var order = inOrder(questions, quizzes, options);
+        order.verify(questions).findQuizIdById(50L);
+        order.verify(quizzes).findByIdForUpdate(30L);
+        order.verify(questions).findByIdAndQuizIdForUpdate(50L, 30L);
+        order.verify(questions).existsByQuizIdAndOrderIndexAndIdNot(30L, 4, 50L);
+        order.verify(options).deleteByQuestionId(50L);
+        order.verify(options).flush();
+        order.verify(questions).flush();
+        order.verify(options).saveAllAndFlush(any());
+        verify(context, never()).findGeneration(any());
+    }
+
+    @Test
+    void questionGenerationIsVerifiedBeforeSaving() {
+        draftForQuestions();
+        when(context.findGeneration(40L)).thenReturn(Optional.of(
+            new QuizContextRepository.GenerationContext(10L, 8L, "QUIZ", "SUCCEEDED")));
+        fails(ErrorCode.FORBIDDEN, () -> service.addQuestion(30L, questionRequest(40L)));
+        verify(questions, never()).saveAndFlush(any());
+        verifyNoInteractions(options);
+    }
+
+    @Test
+    void successfulGenerationSetsServerDerivedProvenance() {
+        draftForQuestions();
+        when(context.findGeneration(40L)).thenReturn(Optional.of(
+            new QuizContextRepository.GenerationContext(10L, 7L, "QUIZ", "SUCCEEDED")));
+        when(questions.saveAndFlush(any())).thenAnswer(invocation -> {
+            Question question = invocation.getArgument(0);
+            question.setId(50L);
+            return question;
+        });
+        savedOptions();
+        assertThat(service.addQuestion(30L, questionRequest(40L)).generatedByAi()).isTrue();
+    }
+
+    @Test
+    void duplicateQuestionPositionIs409AndDoesNotWrite() {
+        draftForQuestions();
+        when(questions.existsByQuizIdAndOrderIndex(30L, 4)).thenReturn(true);
+        fails(ErrorCode.INVALID_STATE, () -> service.addQuestion(30L, questionRequest(null)));
+        verifyNoInteractions(options);
+        verify(questions, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void replacementPositionConflictDoesNotDeleteOldOptions() {
+        draftForQuestions();
+        existingQuestion();
+        when(questions.existsByQuizIdAndOrderIndexAndIdNot(30L, 4, 50L)).thenReturn(true);
+        fails(ErrorCode.INVALID_STATE, () -> service.replaceQuestion(50L, questionRequest(null)));
+        verifyNoInteractions(options);
+    }
+
+    @Test
+    void questionDeletedWhileWaitingForParentLockReturns404() {
+        draftForQuestions();
+        when(questions.findQuizIdById(50L)).thenReturn(Optional.of(30L));
+        fails(ErrorCode.NOT_FOUND, () -> service.replaceQuestion(50L, questionRequest(null)));
+        verifyNoInteractions(options);
+    }
+
+    @Test
+    void missingQuestionReturns404BeforeLock() {
+        actor(7L, UserRole.TEACHER);
+        fails(ErrorCode.NOT_FOUND, () -> service.deleteQuestion(50L));
+        verifyNoInteractions(quizzes, options);
+    }
+
+    @Test
+    void deletionDoesNotRenumberQuestionsOrDeleteHistory() {
+        draftForQuestions();
+        Question question = existingQuestion();
+        service.deleteQuestion(50L);
+        var order = inOrder(options, questions);
+        order.verify(questions).findQuizIdById(50L);
+        order.verify(questions).findByIdAndQuizIdForUpdate(50L, 30L);
+        order.verify(options).deleteByQuestionId(50L);
+        order.verify(options).flush();
+        order.verify(questions).delete(question);
+        order.verify(questions).flush();
+        verify(questions, never()).saveAll(any());
+    }
+
+    @Test
+    void historyBlocksQuestionChanges() {
+        draftForQuestions();
+        when(context.hasLearningHistory(30L)).thenReturn(true);
+        fails(ErrorCode.RESOURCE_IN_USE, () -> service.addQuestion(30L, questionRequest(null)));
+        verifyNoInteractions(options);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = QuizStatus.class, names = {"PUBLISHED", "CLOSED"})
+    void cannotChangeQuestionsAfterPublication(QuizStatus status) {
+        actor(7L, UserRole.TEACHER);
+        lesson();
+        when(quizzes.findByIdForUpdate(30L)).thenReturn(Optional.of(quiz(status)));
+        fails(ErrorCode.INVALID_STATE, () -> service.addQuestion(30L, questionRequest(null)));
+        verifyNoInteractions(options);
+    }
+
+    private WriteQuestionRequest questionRequest(Long generationId) {
+        return new WriteQuestionRequest("New question", null, 4,
+            List.of(new WriteQuestionRequest.Option("Yes", true, 0),
+                new WriteQuestionRequest.Option("No", false, 2)), generationId);
+    }
+
+    private void draftForQuestions() {
+        actor(7L, UserRole.TEACHER);
+        lesson();
+        when(quizzes.findByIdForUpdate(30L)).thenReturn(Optional.of(quiz(QuizStatus.DRAFT)));
+    }
+
+    private Question existingQuestion() {
+        when(questions.findQuizIdById(50L)).thenReturn(Optional.of(30L));
+        Question question = Question.builder().id(50L).quizId(30L).content("Old").orderIndex(0)
+            .generationId(40L).generatedByAi(true).build();
+        when(questions.findByIdAndQuizIdForUpdate(50L, 30L)).thenReturn(Optional.of(question));
+        return question;
+    }
+
+    private void savedOptions() {
+        when(options.saveAllAndFlush(any())).thenAnswer(invocation -> {
+            List<QuestionOption> values = invocation.getArgument(0);
+            for (int i = 0; i < values.size(); i++) {
+                values.get(i).setId(60L + i);
+            }
+            return values;
+        });
     }
 
     private void actor(Long id, UserRole role) {

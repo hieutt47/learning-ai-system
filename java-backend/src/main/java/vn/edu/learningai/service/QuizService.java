@@ -6,10 +6,12 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 import vn.edu.learningai.common.enums.QuizStatus;
 import vn.edu.learningai.common.enums.UserRole;
 import vn.edu.learningai.dto.request.CreateQuizRequest;
 import vn.edu.learningai.dto.request.UpdateQuizRequest;
+import vn.edu.learningai.dto.request.WriteQuestionRequest;
 import vn.edu.learningai.dto.response.PageResponse;
 import vn.edu.learningai.dto.response.QuizAuthorResponse;
 import vn.edu.learningai.dto.response.QuizSummaryResponse;
@@ -139,6 +141,84 @@ public class QuizService {
             }
             throw exception;
         }
+    }
+
+    @Transactional
+    public QuizAuthorResponse.QuestionAuthor addQuestion(Long quizId, WriteQuestionRequest request) {
+        User user = security.getCurrentUser();
+        Quiz quiz = managedDraft(quizId, user);
+        requireNoHistory(quizId);
+        request.validate();
+        if (questionRepository.existsByQuizIdAndOrderIndex(quizId, request.orderIndex())) {
+            throw new ApiException(ErrorCode.INVALID_STATE, "Question order_index already exists");
+        }
+        if (request.generationId() != null) {
+            validateGeneration(request.generationId(), quiz.getLessonId(), user.getId());
+        }
+        Question question = Question.builder().quizId(quizId).build();
+        applyQuestion(question, request);
+        questionRepository.saveAndFlush(question);
+        return mapper.toAuthorQuestion(question, saveOptions(question.getId(), request));
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public QuizAuthorResponse.QuestionAuthor replaceQuestion(Long questionId, WriteQuestionRequest request) {
+        User user = security.getCurrentUser();
+        Long quizId = questionRepository.findQuizIdById(questionId)
+            .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Question not found"));
+        Quiz quiz = managedDraft(quizId, user);
+        Question question = questionRepository.findByIdAndQuizIdForUpdate(questionId, quizId)
+            .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Question not found"));
+        requireNoHistory(quizId);
+        request.validate();
+        if (questionRepository.existsByQuizIdAndOrderIndexAndIdNot(quizId, request.orderIndex(), questionId)) {
+            throw new ApiException(ErrorCode.INVALID_STATE, "Question order_index already exists");
+        }
+        if (request.generationId() != null) {
+            validateGeneration(request.generationId(), quiz.getLessonId(), user.getId());
+        }
+        applyQuestion(question, request);
+        optionRepository.deleteByQuestionId(questionId);
+        optionRepository.flush();
+        questionRepository.flush();
+        return mapper.toAuthorQuestion(question, saveOptions(questionId, request));
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void deleteQuestion(Long questionId) {
+        User user = security.getCurrentUser();
+        Long quizId = questionRepository.findQuizIdById(questionId)
+            .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Question not found"));
+        managedDraft(quizId, user);
+        Question question = questionRepository.findByIdAndQuizIdForUpdate(questionId, quizId)
+            .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Question not found"));
+        requireNoHistory(quizId);
+        optionRepository.deleteByQuestionId(questionId);
+        optionRepository.flush();
+        questionRepository.delete(question);
+        questionRepository.flush();
+    }
+
+    private void requireNoHistory(Long quizId) {
+        if (contextRepository.hasLearningHistory(quizId)) {
+            throw new ApiException(ErrorCode.RESOURCE_IN_USE, "Quiz has learning history");
+        }
+    }
+
+    private void applyQuestion(Question question, WriteQuestionRequest request) {
+        question.setContent(request.content());
+        question.setExplanation(request.explanation());
+        question.setOrderIndex(request.orderIndex());
+        if (request.generationId() != null) {
+            question.setGenerationId(request.generationId());
+        }
+        question.setGeneratedByAi(question.getGenerationId() != null);
+    }
+
+    private List<QuestionOption> saveOptions(Long questionId, WriteQuestionRequest request) {
+        return optionRepository.saveAllAndFlush(request.options().stream().map(option -> QuestionOption.builder()
+            .questionId(questionId).content(option.content()).isCorrect(option.isCorrect())
+            .orderIndex(option.orderIndex()).build()).toList());
     }
 
     private Map<Long, List<QuestionOption>> loadOptions(List<Question> questions) {
