@@ -1,7 +1,10 @@
+import { useMutation } from '@tanstack/react-query'
 import { App, Dropdown, type MenuProps } from 'antd'
 import { useState, type KeyboardEvent } from 'react'
 import { Link, Outlet, useLocation, useMatches, useNavigate } from 'react-router'
 import { ROLE_LABEL, useCurrentUser, type ViewerRole } from '../auth/currentUser'
+import { isApiError } from '../api/client'
+import { logout } from '../auth/session'
 import type { RouteHandle, TabItem } from '../routing/routeHandle'
 import { paths } from '../routing/paths'
 import { useThemeMode } from '../theme/themeMode'
@@ -182,6 +185,19 @@ function AccountMenu({ name, role }: { name: string; role: ViewerRole }) {
   const navigate = useNavigate()
   const { toggle } = useThemeMode()
   const { message } = App.useApp()
+  const logoutMutation = useMutation({
+    mutationFn: logout,
+    onSuccess: () => {
+      void message.success('Đã đăng xuất')
+      void navigate(paths.explore, { replace: true })
+    },
+    onError: (error) => {
+      const text = isApiError(error) && error.code === 'NETWORK_ERROR'
+        ? 'Không kết nối được máy chủ. Vui lòng thử đăng xuất lại.'
+        : 'Không thể đăng xuất. Vui lòng thử lại.'
+      void message.error(text)
+    },
+  })
 
   const items: MenuProps['items'] = [
     {
@@ -201,16 +217,21 @@ function AccountMenu({ name, role }: { name: string; role: ViewerRole }) {
     {
       key: 'logout',
       icon: <Icon name="out" />,
-      label: 'Đăng xuất',
-      // TODO(stub): gọi POST /auth/logout khi phần auth merge.
-      onClick: () => void message.info('Chưa có đăng nhập thật (auth chưa merge).'),
+      label: logoutMutation.isPending ? 'Đang đăng xuất…' : 'Đăng xuất',
+      disabled: logoutMutation.isPending,
+      onClick: () => {
+        if (!logoutMutation.isPending) {
+          logoutMutation.mutate()
+        }
+      },
     },
   ]
 
   return (
-    <Dropdown menu={{ items }} trigger={['click']} placement="bottomRight">
-      <button type="button" className="ava-btn" aria-label="Menu tài khoản">
+    <Dropdown menu={{ items }} trigger={['click']} placement="bottomRight" disabled={logoutMutation.isPending}>
+      <button type="button" className="ava-btn" aria-label="Menu tài khoản" disabled={logoutMutation.isPending} aria-busy={logoutMutation.isPending}>
         <Avatar name={name} />
+        {logoutMutation.isPending && <span className="st">Đang đăng xuất…</span>}
         <Icon name="down" />
       </button>
     </Dropdown>
