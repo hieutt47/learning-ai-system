@@ -53,7 +53,6 @@ public class TeacherRequestService {
         return teacherRequestMapper.toResponse(teacherRequestRepository.save(teacherRequest));
     }
 
-
     @Transactional(readOnly = true)
     public PageResponse<TeacherRequestResponse> getMyRequests(Pageable pageable) {
         User user = securityHelper.getCurrentUser();

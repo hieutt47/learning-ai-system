@@ -4,15 +4,6 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 
-/**
- * Error codes shared by every module.
- *
- * <p>Each name maps to exactly one HTTP status and one default message. Merging
- * the auth, lesson and course work produced duplicate constants twice
- * (ACCOUNT_INACTIVE, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, INVALID_STATE,
- * FILE_TOO_LARGE, UNSUPPORTED_FILE_TYPE); there is now one of each, with the
- * messages the contracts and existing tests rely on.</p>
- */
 @Getter
 @RequiredArgsConstructor
 public enum ErrorCode {
@@ -36,7 +27,6 @@ public enum ErrorCode {
     AI_PROVIDER_ERROR(HttpStatus.BAD_GATEWAY, "AI provider error"),
     AI_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "AI provider timed out"),
     SOURCE_TEXT_EMPTY(HttpStatus.UNPROCESSABLE_ENTITY, "Source text is empty"),
-
     STORAGE_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Could not store or read the file"),
     UNCATEGORIZED_EXCEPTION(HttpStatus.INTERNAL_SERVER_ERROR, "Uncategorized error"),
 

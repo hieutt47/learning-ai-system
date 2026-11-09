@@ -47,7 +47,6 @@ public class RefreshTokenService {
         private final Instant expiresAt;
     }
 
-
     public RefreshTokenResult createRefreshToken(Long userId) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED));
@@ -71,7 +70,6 @@ public class RefreshTokenService {
             .expiresAt(expiresAt)
             .build();
     }
-
 
     public RefreshTokenResult rotateRefreshToken(String token) {
         if(token == null || token.isBlank())
@@ -104,8 +102,6 @@ public class RefreshTokenService {
             .build();
     }
 
-
-
     public void revokeRefreshToken(String token) {
         if(token == null || token.isBlank())
             return;
@@ -120,7 +116,6 @@ public class RefreshTokenService {
 
     }
 
-
     public void revokeAllForUser(Long userId) {
         sessionRepository.revokeAllForUser(userId, Instant.now());
     }
@@ -131,9 +126,6 @@ public class RefreshTokenService {
         return ENCODER.encodeToString(bytes);
     }
 
-
-
-
     private String hash(String token) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")
@@ -143,6 +135,5 @@ public class RefreshTokenService {
             throw new IllegalStateException("SHA-256 is unavailable", e);
         }
     }
-
 
 }

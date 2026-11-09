@@ -89,8 +89,6 @@ public class CourseController {
         @Valid @RequestBody CourseArchiveRequest request
     ) {
         if (!Boolean.TRUE.equals(request.getArchived())) {
-            // Archive is one-way in the MVP; refusing false is clearer than
-            // accepting a value that does nothing.
             throw new ApiException(ErrorCode.VALIDATION_ERROR, "Only archived=true is supported");
         }
         return ResponseEntity.status(HttpStatus.OK)

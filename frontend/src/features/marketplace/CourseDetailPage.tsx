@@ -8,32 +8,21 @@ import { paths } from '../../shared/routing/paths'
 import { courseKeys, enroll, getMyCourses, getPublicCourse } from './course.api'
 import { CourseCover } from './CourseCard'
 
-/**
- * Chi tiết khóa học (prototype #course): giới thiệu, đề cương, thẻ ghi danh bên phải.
- *
- * Nút hành động phụ thuộc người xem: khách → đăng nhập rồi quay lại; sinh viên →
- * ghi danh hoặc vào học; giảng viên/admin → không ghi danh được, chỉ báo.
- */
 export function CourseDetailPage() {
   const { courseId = '' } = useParams()
   const queryClient = useQueryClient()
   const { message } = App.useApp()
   const viewer = useCurrentUser()
-
   const courseQuery = useQuery({
     queryKey: courseKeys.publicDetail(courseId),
     queryFn: () => getPublicCourse(courseId),
     enabled: Boolean(courseId),
   })
-
-  // Đã ghi danh chưa: dựa vào "Khóa học của tôi", cùng nguồn với trang đó nên
-  // sau khi ghi danh cả hai trang cùng cập nhật.
   const mineQuery = useQuery({
     queryKey: courseKeys.mine,
     queryFn: () => getMyCourses({ page: 1, page_size: 100 }),
     enabled: viewer.role === 'STUDENT',
   })
-
   usePageHeader(
     courseQuery.data
       ? {
@@ -46,7 +35,6 @@ export function CourseDetailPage() {
         }
       : null,
   )
-
   const enrollMutation = useMutation({
     mutationFn: () => enroll(courseId),
     onSuccess: async () => {
@@ -58,14 +46,11 @@ export function CourseDetailPage() {
     },
     onError: (error: Error) => void message.error(error.message),
   })
-
   if (courseQuery.isLoading) return <LoadingState tip="Đang tải khóa học…" />
   if (courseQuery.isError) return <ErrorState error={courseQuery.error} onRetry={() => void courseQuery.refetch()} />
-
   const course = courseQuery.data!
   const enrolled = mineQuery.data?.items.some((item) => item.id === course.id) ?? false
   const firstLessonId = course.outline[0]?.id
-
   const primaryAction = (() => {
     if (viewer.role === 'GUEST') {
       return (
@@ -98,7 +83,6 @@ export function CourseDetailPage() {
       </Button>
     )
   })()
-
   return (
     <Space orientation="vertical" size={20} style={{ width: '100%' }}>
       <Row gutter={[24, 24]}>
@@ -140,7 +124,6 @@ export function CourseDetailPage() {
           </Card>
         </Col>
       </Row>
-
       <Row gutter={[24, 24]}>
         <Col xs={24} lg={16}>
           <Space orientation="vertical" size={20} style={{ width: '100%' }}>

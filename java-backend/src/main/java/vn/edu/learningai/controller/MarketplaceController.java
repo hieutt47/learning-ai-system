@@ -12,17 +12,11 @@ import vn.edu.learningai.dto.response.CoursePublicResponse;
 import vn.edu.learningai.dto.response.PageResponse;
 import vn.edu.learningai.service.MarketplaceService;
 
-/**
- * COURSE-02. Public by design: no {@code X-User-Id} is read, so these routes
- * behave identically for guests and signed-in users and cannot accidentally
- * become owner-only.
- */
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/courses")
 public class MarketplaceController {
     private final MarketplaceService marketplaceService;
-
     @GetMapping
     public ResponseEntity<PageResponse<CoursePublicResponse>> search(
         @RequestParam(name = "q", required = false) String query,
@@ -34,7 +28,6 @@ public class MarketplaceController {
         return ResponseEntity.status(HttpStatus.OK)
             .body(marketplaceService.search(query, categoryId, sort, page, pageSize));
     }
-
     @GetMapping("/{id}")
     public ResponseEntity<CoursePublicResponse> getOne(@PathVariable Long id) {
         return ResponseEntity.status(HttpStatus.OK).body(marketplaceService.getPublicCourse(id));

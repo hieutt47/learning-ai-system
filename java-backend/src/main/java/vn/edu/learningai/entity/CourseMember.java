@@ -18,14 +18,6 @@ public class CourseMember {
     @EmbeddedId
     private CourseMemberId id;
 
-    /**
-     * Set by the writer, not by auditing.
-     *
-     * <p>{@code @CreatedDate} would overwrite it with a nanosecond clock value,
-     * and the {@code DATETIME(6)} column keeps only microseconds, so the value
-     * returned by the create call would differ from every later read of the
-     * same row.</p>
-     */
     @Column(name = "enrolled_at", nullable = false, updatable = false)
     private Instant enrolledAt;
 }

@@ -17,7 +17,6 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
 
     boolean existsByThumbnailStorageKey(String thumbnailStorageKey);
 
-    /** Loads the course with the relations a public response always reads. */
     @EntityGraph(attributePaths = {"category", "teacher"})
     Optional<Course> findWithCategoryAndTeacherById(Long id);
 }
