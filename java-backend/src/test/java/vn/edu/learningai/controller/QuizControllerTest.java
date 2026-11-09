@@ -179,6 +179,24 @@ class QuizControllerTest {
     }
 
     @Test
+    void publicationReturnsAuthorViewWithNewStatus() throws Exception {
+        when(service.changePublication(eq(30L), any())).thenReturn(new QuizAuthorResponse(
+            "30", "10", "Java", QuizStatus.PUBLISHED, Instant.parse("2026-11-09T00:00:00Z"), List.of()));
+        mvc.perform(patch("/api/v1/quizzes/30/publication").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\":\"PUBLISHED\"}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PUBLISHED"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "{}", "{\"status\":\"DRAFT\"}", "{\"status\":null}",
+        "{\"status\":\"CLOSED\",\"closed_at\":null}"})
+    void invalidPublicationBodyIs400(String body) throws Exception {
+        mvc.perform(patch("/api/v1/quizzes/30/publication").contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        verifyNoInteractions(service);
+    }
+
+    @Test
     void enrollmentErrorKeeps403AndCode() throws Exception {
         when(service.get(30L)).thenThrow(new ApiException(ErrorCode.ENROLLMENT_REQUIRED));
         mvc.perform(get("/api/v1/quizzes/30")).andExpect(status().isForbidden())

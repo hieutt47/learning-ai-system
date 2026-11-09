@@ -12,8 +12,9 @@ class UpdateQuizRequestTest {
     private final JsonMapper json = JsonMapper.builder().build();
 
     @Test
-    void absentFieldsAreUnchanged() {
-        assertThat(json.readValue("{}", UpdateQuizRequest.class)).isEqualTo(new UpdateQuizRequest(null, null));
+    void emptyPatchIsRejectedAsRequiredByContract() {
+        assertThatThrownBy(() -> json.readValue("{}", UpdateQuizRequest.class))
+            .hasRootCauseInstanceOf(vn.edu.learningai.exception.ApiException.class);
     }
 
     @Test

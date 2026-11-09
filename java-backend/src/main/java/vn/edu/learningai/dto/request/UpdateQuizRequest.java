@@ -12,7 +12,7 @@ public record UpdateQuizRequest(String title, Long generationId) {
 
     @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
     public static UpdateQuizRequest fromJson(JsonNode body) {
-        if (body == null || !body.isObject()) {
+        if (body == null || !body.isObject() || body.isEmpty()) {
             throw invalid("Request body must be an object");
         }
         for (String field : body.propertyNames()) {

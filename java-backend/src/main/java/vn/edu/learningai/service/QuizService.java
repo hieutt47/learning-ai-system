@@ -12,6 +12,8 @@ import vn.edu.learningai.common.enums.UserRole;
 import vn.edu.learningai.dto.request.CreateQuizRequest;
 import vn.edu.learningai.dto.request.UpdateQuizRequest;
 import vn.edu.learningai.dto.request.WriteQuestionRequest;
+import vn.edu.learningai.dto.request.QuizPublicationRequest;
+import vn.edu.learningai.common.enums.QuestionType;
 import vn.edu.learningai.dto.response.PageResponse;
 import vn.edu.learningai.dto.response.QuizAuthorResponse;
 import vn.edu.learningai.dto.response.QuizSummaryResponse;
@@ -29,6 +31,8 @@ import vn.edu.learningai.repository.QuizRepository;
 import vn.edu.learningai.security.SecurityHelper;
 
 import java.sql.SQLException;
+import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -43,7 +47,7 @@ public class QuizService {
     private final QuizMapper mapper;
     private final SecurityHelper security;
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public QuizAuthorResponse create(Long lessonId, CreateQuizRequest request) {
         User user = security.getCurrentUser();
         var lesson = lesson(lessonId);
@@ -97,7 +101,7 @@ public class QuizService {
         return manager ? mapper.toAuthor(quiz, questions, options) : mapper.toStudent(quiz, questions, options);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public QuizAuthorResponse update(Long quizId, UpdateQuizRequest request) {
         User user = security.getCurrentUser();
         Quiz quiz = managedDraft(quizId, user);
@@ -116,7 +120,7 @@ public class QuizService {
         return mapper.toAuthor(quiz, questions, options);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void delete(Long quizId) {
         User user = security.getCurrentUser();
         Quiz quiz = managedDraft(quizId, user);
@@ -143,7 +147,7 @@ public class QuizService {
         }
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public QuizAuthorResponse.QuestionAuthor addQuestion(Long quizId, WriteQuestionRequest request) {
         User user = security.getCurrentUser();
         Quiz quiz = managedDraft(quizId, user);
@@ -199,6 +203,51 @@ public class QuizService {
         questionRepository.flush();
     }
 
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public QuizAuthorResponse changePublication(Long quizId, QuizPublicationRequest request) {
+        User user = security.getCurrentUser();
+        Quiz quiz = managedQuiz(quizId, user);
+        QuizStatus target = request.status();
+        boolean publishing = quiz.getStatus() == QuizStatus.DRAFT && target == QuizStatus.PUBLISHED;
+        boolean closing = quiz.getStatus() == QuizStatus.PUBLISHED && target == QuizStatus.CLOSED;
+        if (!publishing && !closing) {
+            throw new ApiException(ErrorCode.INVALID_STATE, "Only DRAFT to PUBLISHED or PUBLISHED to CLOSED is allowed");
+        }
+        List<Question> questions = questionRepository.findByQuizIdOrderByOrderIndexAsc(quizId);
+        Map<Long, List<QuestionOption>> options = loadOptions(questions);
+        if (publishing) {
+            requireNoHistory(quizId);
+            validateForPublication(quiz, questions, options);
+            quiz.setPublishedAt(Instant.now());
+        } else {
+            quiz.setClosedAt(Instant.now());
+        }
+        quiz.setStatus(target);
+        quizRepository.flush();
+        return mapper.toAuthor(quiz, questions, options);
+    }
+
+    private void validateForPublication(Quiz quiz, List<Question> questions, Map<Long, List<QuestionOption>> options) {
+        if (quiz.getTitle() == null || quiz.getTitle().isBlank()
+            || quiz.getTitle().codePointCount(0, quiz.getTitle().length()) > 200 || questions.isEmpty()) {
+            throw new ApiException(ErrorCode.INVALID_QUIZ);
+        }
+        var positions = new HashSet<Integer>();
+        for (Question question : questions) {
+            if (question.getQuestionType() != QuestionType.MULTIPLE_CHOICE || !positions.add(question.getOrderIndex())) {
+                throw new ApiException(ErrorCode.INVALID_QUIZ);
+            }
+            var values = options.get(question.getId()).stream().map(option ->
+                new WriteQuestionRequest.Option(option.getContent(), option.getIsCorrect(), option.getOrderIndex())).toList();
+            try {
+                new WriteQuestionRequest(question.getContent(), question.getExplanation(), question.getOrderIndex(),
+                    values, question.getGenerationId()).validate();
+            } catch (ApiException exception) {
+                throw new ApiException(ErrorCode.INVALID_QUIZ, exception.getMessage());
+            }
+        }
+    }
+
     private void requireNoHistory(Long quizId) {
         if (contextRepository.hasLearningHistory(quizId)) {
             throw new ApiException(ErrorCode.RESOURCE_IN_USE, "Quiz has learning history");
@@ -234,13 +283,18 @@ public class QuizService {
     }
 
     private Quiz managedDraft(Long quizId, User user) {
+        Quiz quiz = managedQuiz(quizId, user);
+        if (quiz.getStatus() != QuizStatus.DRAFT) {
+            throw new ApiException(ErrorCode.INVALID_STATE, "Only DRAFT quizzes can be changed");
+        }
+        return quiz;
+    }
+
+    private Quiz managedQuiz(Long quizId, User user) {
         Quiz quiz = quizRepository.findByIdForUpdate(quizId)
             .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Quiz not found"));
         if (!isManager(user, lesson(quiz.getLessonId()))) {
             throw new ApiException(ErrorCode.FORBIDDEN);
-        }
-        if (quiz.getStatus() != QuizStatus.DRAFT) {
-            throw new ApiException(ErrorCode.INVALID_STATE, "Only DRAFT quizzes can be changed");
         }
         return quiz;
     }

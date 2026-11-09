@@ -16,6 +16,7 @@ public enum ErrorCode {
     ENROLLMENT_REQUIRED(HttpStatus.FORBIDDEN, "Course enrollment is required"),
     NOT_FOUND(HttpStatus.NOT_FOUND, "Resource not found"),
     INVALID_STATE(HttpStatus.CONFLICT, "Invalid state for this operation"),
+    INVALID_QUIZ(HttpStatus.CONFLICT, "Quiz content is invalid for publication"),
     RESOURCE_IN_USE(HttpStatus.CONFLICT, "Resource is in use"),
 
     UNCATEGORIZED_EXCEPTION(HttpStatus.INTERNAL_SERVER_ERROR, "Uncategorized error"),
