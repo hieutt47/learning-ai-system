@@ -44,7 +44,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<ErrorResponse> handleApiException(ApiException e, HttpServletRequest request) {
         return ResponseEntity
             .status(e.getErrorCode().getStatus())
-            .body(errorBody(e.getErrorCode(), e.getMessage(), null, request));
+            .body(errorBody(e.getErrorCode(), e.getMessage(), e.getDetails(), request));
     }
 
     @Override
