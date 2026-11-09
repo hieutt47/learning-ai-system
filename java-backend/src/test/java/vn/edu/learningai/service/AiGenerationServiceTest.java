@@ -2,7 +2,9 @@ package vn.edu.learningai.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockMakers;
 import tools.jackson.databind.json.JsonMapper;
 import vn.edu.learningai.ai.AIClient;
 import vn.edu.learningai.ai.AIClientException;
@@ -31,9 +33,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 class AiGenerationServiceTest {
 
@@ -55,7 +57,11 @@ class AiGenerationServiceTest {
         access = mock(LessonAccessPolicy.class);
         sourceText = mock(LessonSourceTextProvider.class);
         repository = mock(AiGenerationRepository.class);
-        aiClient = spy(new MockAIClient(jsonMapper));
+        // Spy MockAIClient (class) bằng mock maker kiểu lớp con, vì cấu hình chung là mock-maker-proxy.
+        aiClient = mock(MockAIClient.class, withSettings()
+            .spiedInstance(new MockAIClient(jsonMapper))
+            .defaultAnswer(Answers.CALLS_REAL_METHODS)
+            .mockMaker(MockMakers.SUBCLASS));
         when(repository.save(any())).thenAnswer(inv -> {
             AIGeneration g = inv.getArgument(0);
             g.setId(99L);
