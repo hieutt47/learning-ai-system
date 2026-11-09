@@ -1,6 +1,5 @@
 package vn.edu.learningai.security.service;
 
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Service;
@@ -18,7 +17,6 @@ public class RefreshTokenCookieService {
 
     @Value("${app.auth.cookie.same-site}")
     private String sameSite;
-
 
     @Value("${jwt.refresh-ttl}")
     private long refreshTTL;

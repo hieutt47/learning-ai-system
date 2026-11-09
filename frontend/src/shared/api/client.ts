@@ -1,20 +1,11 @@
 import type { ApiErrorBody, ErrorCode, FieldErrorDetail } from './types'
 
-/**
- * API client dùng chung cho mọi feature. Một chỗ duy nhất biết base URL, header xác thực
- * và cách đọc lỗi; feature chỉ gọi apiGet/apiPost/... với path tương đối, ví dụ "/courses".
- * Frontend dùng chung cho backend Java và Python: chỉ đổi VITE_API_BASE_URL.
- */
-
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '/api/v1').replace(/\/+$/, '')
-
-/** Lỗi API đã chuẩn hóa. Mọi lỗi (HTTP, mạng) đều ném ra ApiError. */
 export class ApiError extends Error {
   readonly status: number
   readonly code: ErrorCode
   readonly details: FieldErrorDetail[]
   readonly requestId?: string
-
   constructor(status: number, body: ApiErrorBody) {
     super(body.message)
     this.name = 'ApiError'
@@ -23,13 +14,10 @@ export class ApiError extends Error {
     this.details = body.details ?? []
     this.requestId = body.request_id
   }
-
-  /** Lỗi theo field (400 VALIDATION_ERROR) dạng {front_text: "must not be blank"} để gắn vào form. */
   fieldErrors(): Record<string, string> {
     return Object.fromEntries(this.details.map((d) => [d.field, d.message]))
   }
 }
-
 export function isApiError(error: unknown): error is ApiError {
   return error instanceof ApiError
 }
@@ -37,7 +25,6 @@ export function isApiError(error: unknown): error is ApiError {
 type TokenProvider = () => string | null | undefined
 let accessTokenProvider: TokenProvider = () => null
 
-/** Auth feature gọi hàm này để client gắn "Authorization: Bearer <token>" vào mọi request. */
 export function setAccessTokenProvider(provider: TokenProvider): void {
   accessTokenProvider = provider
 }
@@ -54,25 +41,18 @@ export function setSessionExpiredHandler(handler: () => void): void {
 }
 
 let unauthorizedHandler: (() => void) | null = null
-
-/** Gọi khi API trả 401 (đã đăng ký trong router: chuyển về trang đăng nhập, giữ trang đích). */
 export function setUnauthorizedHandler(handler: () => void): void {
   unauthorizedHandler = handler
 }
-
-// ---- Gọi API ----
-
 type Query = Record<string, string | number | boolean | null | undefined>
 
 export interface RequestOptions {
   query?: Query
-  /** Object → JSON; FormData → multipart (upload file). */
   body?: unknown
   signal?: AbortSignal
   headers?: Record<string, string>
   auth?: boolean
 }
-
 function buildUrl(path: string, query?: Query): string {
   const url = `${BASE_URL}${path.startsWith('/') ? path : `/${path}`}`
   if (!query) {
@@ -103,13 +83,11 @@ function buildHeaders(
   }
   return headers
 }
-
 async function toApiError(response: Response): Promise<ApiError> {
   let body: Partial<ApiErrorBody> = {}
   try {
     body = (await response.json()) as Partial<ApiErrorBody>
   } catch {
-    // Body không phải JSON (proxy lỗi, HTML...): dùng mã mặc định theo HTTP status.
   }
   return new ApiError(response.status, {
     code: body.code ?? defaultCode(response.status),
@@ -118,7 +96,6 @@ async function toApiError(response: Response): Promise<ApiError> {
     request_id: body.request_id,
   })
 }
-
 function defaultCode(status: number): ErrorCode {
   switch (status) {
     case 400:
@@ -165,7 +142,6 @@ async function sendRequest<T>(method: string, path: string, options: RequestOpti
     }
     throw new ApiError(0, { code: 'NETWORK_ERROR', message: 'Không kết nối được máy chủ' })
   }
-
   if (!response.ok) {
     const apiError = await toApiError(response)
     if (response.status === 401 && token) {
@@ -189,7 +165,6 @@ async function sendRequest<T>(method: string, path: string, options: RequestOpti
     }
     throw apiError
   }
-
   if (response.status === 204 || response.headers.get('Content-Length') === '0') {
     return undefined as T
   }
@@ -202,19 +177,14 @@ export function apiRequest<T>(method: string, path: string, options: RequestOpti
 
 export const apiGet = <T>(path: string, options?: Omit<RequestOptions, 'body'>) =>
   apiRequest<T>('GET', path, options)
-
 export const apiPost = <T>(path: string, body?: unknown, options?: RequestOptions) =>
   apiRequest<T>('POST', path, { ...options, body })
-
 export const apiPut = <T>(path: string, body?: unknown, options?: RequestOptions) =>
   apiRequest<T>('PUT', path, { ...options, body })
-
 export const apiPatch = <T>(path: string, body?: unknown, options?: RequestOptions) =>
   apiRequest<T>('PATCH', path, { ...options, body })
-
 export const apiDelete = <T = void>(path: string, options?: RequestOptions) =>
   apiRequest<T>('DELETE', path, options)
-
 export async function apiGetBlob(path: string, options: Omit<RequestOptions, 'body'> = {}): Promise<Blob> {
   let response: Response
   try {

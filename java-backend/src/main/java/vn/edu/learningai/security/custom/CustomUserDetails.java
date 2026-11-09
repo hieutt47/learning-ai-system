@@ -68,7 +68,6 @@ public class CustomUserDetails implements UserDetails {
         return id;
     }
 
-
     @Override
     public boolean isAccountNonExpired() {
         return true;
@@ -89,13 +88,6 @@ public class CustomUserDetails implements UserDetails {
         return isActive;
     }
 
-    /**
-     * Application role, derived from the single authority built in {@link #build}.
-     *
-     * <p>Services check roles after Security has already let the request through;
-     * reading it from the authority keeps one source of truth for the role
-     * instead of a second field that could drift.</p>
-     */
     public UserRole getRole() {
         return UserRole.valueOf(authorities.iterator().next().getAuthority().substring("ROLE_".length()));
     }

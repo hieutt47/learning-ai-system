@@ -9,23 +9,14 @@ import { CourseStatusTag } from './CourseStatusTag'
 import { formatDateTime } from './format'
 import type { CourseStatus, OwnedCourse } from './course.types'
 
-/**
- * Khóa học (quản trị, prototype #admcourses): bảng toàn bộ khóa học của mọi
- * giảng viên, xem chi tiết và gỡ xuất bản.
- *
- * Dùng lại /teaching/courses vì admin thấy tất cả qua route đó — không có API
- * riêng cho quản trị, và thêm một route chỉ để đổi cách phân trang là thừa.
- */
 export function AdminCoursesPage() {
   const queryClient = useQueryClient()
   const { message, modal } = App.useApp()
   const [query, setQuery] = useState('')
-
   const coursesQuery = useQuery({
     queryKey: courseKeys.teaching,
     queryFn: () => listOwnedCourses({ page: 1, page_size: 100 }),
   })
-
   const unpublishMutation = useMutation({
     mutationFn: (courseId: string) => setPublished(courseId, false),
     onSuccess: async () => {
@@ -34,10 +25,8 @@ export function AdminCoursesPage() {
     },
     onError: (error: Error) => void message.error(error.message),
   })
-
   if (coursesQuery.isLoading) return <LoadingState tip="Đang tải khóa học…" />
   if (coursesQuery.isError) return <ErrorState error={coursesQuery.error} onRetry={() => void coursesQuery.refetch()} />
-
   const all = coursesQuery.data?.items ?? []
   const normalized = query.trim().toLowerCase()
   const visible = normalized
@@ -46,7 +35,6 @@ export function AdminCoursesPage() {
           course.title.toLowerCase().includes(normalized) || course.categoryName.toLowerCase().includes(normalized),
       )
     : all
-
   const confirmUnpublish = (course: OwnedCourse) =>
     modal.confirm({
       title: 'Gỡ xuất bản khóa học?',
@@ -56,7 +44,6 @@ export function AdminCoursesPage() {
       okButtonProps: { danger: true },
       onOk: () => unpublishMutation.mutateAsync(course.id),
     })
-
   const columns: TableProps<OwnedCourse>['columns'] = [
     {
       title: 'Khóa học',
@@ -95,7 +82,6 @@ export function AdminCoursesPage() {
       ),
     },
   ]
-
   return (
     <Card
       title={

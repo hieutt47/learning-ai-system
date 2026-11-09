@@ -26,18 +26,9 @@ public class ErrorResponse {
         return new ErrorResponse(code, message, null, requestId);
     }
 
-    /**
-     * No request id available.
-     *
-     * <p>Used by handlers on paths that run outside the request chain (Spring
-     * Security's entry point and access-denied handler fire before the filter
-     * that assigns ids), so the field is simply omitted rather than fake.</p>
-     */
     public static ErrorResponse from(String code, String message) {
         return new ErrorResponse(code, message, null, null);
     }
-
-    /** Same, with field-level details. */
     public static ErrorResponse from(String code, String message, List<FieldError> details) {
         return new ErrorResponse(code, message, details, null);
     }

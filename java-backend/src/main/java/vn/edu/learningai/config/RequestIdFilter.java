@@ -14,19 +14,13 @@ import java.io.IOException;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-/**
- * Assigns every request an id so error bodies and logs can be correlated.
- * An inbound {@code X-Request-Id} is reused only when it looks like a safe token.
- */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class RequestIdFilter extends OncePerRequestFilter {
     public static final String REQUEST_ID_ATTRIBUTE = "requestId";
     public static final String REQUEST_ID_HEADER = "X-Request-Id";
     public static final String MDC_KEY = "request_id";
-
     private static final Pattern SAFE_ID = Pattern.compile("[A-Za-z0-9._-]{1,64}");
-
     @Override
     protected void doFilterInternal(
         HttpServletRequest request,
@@ -43,7 +37,6 @@ public class RequestIdFilter extends OncePerRequestFilter {
             MDC.remove(MDC_KEY);
         }
     }
-
     private String resolveRequestId(HttpServletRequest request) {
         String supplied = request.getHeader(REQUEST_ID_HEADER);
         if (supplied != null && SAFE_ID.matcher(supplied).matches()) {
