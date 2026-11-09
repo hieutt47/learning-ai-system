@@ -1,6 +1,7 @@
 /* Design tokens chép nguyên từ docs/03-experience/prototype.html: sáng, tối theo hệ thống, tối khi chọn tay.
    Khối --ai-* là màu riêng cho mọi thứ liên quan AI theo design-brief mục 3 (prototype chưa có). */
 :root{
+  --on-hero:#FFFFFF;
   --bg:#F5F6FA;
   --surface:#FFFFFF;
   --surface-2:#F9FAFB;
