@@ -13,8 +13,10 @@ public enum ErrorCode {
 
     UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "Authentication required or credentials are invalid"),
     FORBIDDEN(HttpStatus.FORBIDDEN, "Forbidden"),
+    ENROLLMENT_REQUIRED(HttpStatus.FORBIDDEN, "Course enrollment is required"),
     NOT_FOUND(HttpStatus.NOT_FOUND, "Resource not found"),
     INVALID_STATE(HttpStatus.CONFLICT, "Invalid state for this operation"),
+    INVALID_QUIZ(HttpStatus.CONFLICT, "Quiz content is invalid for publication"),
     RESOURCE_IN_USE(HttpStatus.CONFLICT, "Resource is in use"),
 
     ENROLLMENT_REQUIRED(HttpStatus.FORBIDDEN, "Course enrollment required"),

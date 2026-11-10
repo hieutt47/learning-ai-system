@@ -1,0 +1,552 @@
+openapi: 3.1.0
+info:
+  title: Learning AI Shared API
+  version: 0.1.0
+  description: |
+    Partial shared contract: only the nine quiz-authoring/read/publication operations.
+    Other MVP APIs, including AI generation, attempts and grading, are not specified here.
+    All paths include /api/v1; deployment chooses the origin (no server URL is assumed).
+    JSON uses snake_case, positive BIGINT IDs as strings and UTC timestamps ending in Z.
+    Private operations require an active account and a valid, unexpired access JWT.
+    Logout revokes the refresh session; issued access JWTs remain valid until expiry.
+    O means course-owning TEACHER or ADMIN; E means enrolled STUDENT. Resolve every
+    lesson/quiz/question through its course and check object access, not just route role.
+    ADMIN may manage content but may not use another actor's AI generation.
+    Enrolled students retain learning access when a course is unpublished or archived.
+    Unknown and server-owned request fields are rejected with 400 VALIDATION_ERROR.
+    Validation failures are 400 (not 422). State/unique conflicts are 409.
+    Content-creation POSTs must not be automatically retried; no idempotency endpoint or
+    idempotency-key guarantee is introduced by this contract.
+security:
+  - bearerAuth: []
+tags:
+  - name: Quizzes
+paths:
+  /api/v1/lessons/{lesson_id}/quizzes:
+    parameters:
+      - $ref: '#/components/parameters/LessonId'
+    get:
+      tags: [Quizzes]
+      operationId: listLessonQuizzes
+      summary: List quizzes in a lesson
+      description: |
+        O sees every status; E sees only PUBLISHED summaries. A student without
+        enrollment receives 403 ENROLLMENT_REQUIRED. Empty visible results return
+        an empty page, not 404. Order is created_at descending, then id descending.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Page of visible quiz summaries; no answers or provenance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuizPage'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Quizzes]
+      operationId: createQuiz
+      summary: Create an empty DRAFT quiz
+      description: |
+        O only. Omitted or null generation_id creates a manual quiz. A non-null
+        generation_id must pass the generation provenance checks below; no candidate
+        questions are automatically persisted. Questions are saved in separate requests,
+        so multiple HTTP requests do not constitute one atomic save.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuizCreate'
+      responses:
+        '201':
+          description: DRAFT created with an empty questions array.
+          headers:
+            Location:
+              description: Relative URI /api/v1/quizzes/{quiz_id} of the created quiz.
+              required: true
+              schema: { type: string, format: uri-reference }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuizAuthor'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/quizzes/{quiz_id}:
+    parameters:
+      - $ref: '#/components/parameters/QuizId'
+    get:
+      tags: [Quizzes]
+      operationId: getQuiz
+      summary: Read an author or student view
+      description: |
+        O receives QuizAuthor for any status; E receives QuizStudent only for PUBLISHED.
+        Student requests for DRAFT/CLOSED return 404, never an author view; a student
+        without enrollment requesting a visible PUBLISHED quiz receives 403
+        ENROLLMENT_REQUIRED. Student responses exclude explanation, correctness and
+        generation metadata. Questions/options are ordered by order_index ascending.
+      responses:
+        '200':
+          description: Role- and object-authorized view; author/student schemas are disjoint.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/QuizAuthor'
+                  - $ref: '#/components/schemas/QuizStudent'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Quizzes]
+      operationId: updateQuiz
+      summary: Patch DRAFT quiz metadata
+      description: |
+        O only; parent quiz must be DRAFT. Apply only present fields. Omitting title or
+        generation_id leaves that field unchanged; title:null is invalid. Explicit null
+        generation_id never clears verified provenance (existing provenance is retained).
+        A non-null generation_id is verified for this lesson and the current actor.
+        A title-only update must not erase provenance. PUBLISHED/CLOSED are immutable.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuizPatch'
+      responses:
+        '200': { $ref: '#/components/responses/QuizAuthor' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Quizzes]
+      operationId: deleteQuiz
+      summary: Delete a DRAFT quiz
+      description: |
+        O only; DRAFT without learning history only. Delete its draft questions/options
+        atomically. PUBLISHED/CLOSED cannot be deleted. Missing/already-deleted quiz is
+        404, including a repeat DELETE; never cascade-delete learning history.
+      responses:
+        '204': { description: Deleted; no response body. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/quizzes/{quiz_id}/questions:
+    parameters:
+      - $ref: '#/components/parameters/QuizId'
+    post:
+      tags: [Quizzes]
+      operationId: createQuestion
+      summary: Add a question and its options to a DRAFT quiz
+      description: |
+        O only; parent must be DRAFT. Save question and all options atomically.
+        Validate option correctness and normalized content uniqueness; order_index must
+        be unique within its quiz (and each option index within its question). Never
+        silently renumber client positions. Omitted/null generation_id is manual;
+        non-null generation_id is verified, then generated_by_ai is server-derived.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuestionWrite'
+      responses:
+        '201':
+          description: Question and options created.
+          headers:
+            Location:
+              description: Relative URI /api/v1/questions/{question_id} of the created question.
+              required: true
+              schema: { type: string, format: uri-reference }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionAuthor'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/questions/{question_id}:
+    parameters:
+      - $ref: '#/components/parameters/QuestionId'
+    put:
+      tags: [Quizzes]
+      operationId: replaceQuestion
+      summary: Replace the full DRAFT question and option set
+      description: |
+        O only; parent quiz must be DRAFT. All content fields, including nullable
+        explanation, are required. Replace options atomically with newly allocated IDs;
+        no draft may be referenced by learning history. Do not accept caller option IDs.
+        Omitted generation_id retains existing provenance; explicit null also never
+        clears verified provenance. Non-null generation_id must be verified for this
+        lesson/current actor. Validation failure rolls back the entire replacement.
+        Unique positions are checked without silently changing order_index.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuestionWrite'
+      responses:
+        '200':
+          description: Replaced question with its new option IDs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionAuthor'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Quizzes]
+      operationId: deleteQuestion
+      summary: Delete a question from a DRAFT quiz
+      description: |
+        O only; parent must be DRAFT. Delete the question and its options atomically;
+        do not renumber remaining questions. Missing/already-deleted question is 404.
+        PUBLISHED/CLOSED content cannot be deleted.
+      responses:
+        '204': { description: Deleted; no response body. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/quizzes/{quiz_id}/publication:
+    parameters:
+      - $ref: '#/components/parameters/QuizId'
+    patch:
+      tags: [Quizzes]
+      operationId: changeQuizPublication
+      summary: Publish a DRAFT or close a PUBLISHED quiz
+      description: |
+        O only. Only DRAFT -> PUBLISHED -> CLOSED is allowed. Every other transition,
+        including requesting the current status, returns 409 INVALID_STATE; publication
+        is not idempotent. Publish requires at least one valid question and all question/
+        option constraints, otherwise 409 INVALID_QUIZ. DRAFT may be an unfinished quiz
+        with no questions, but each saved question must already be valid.
+        PUBLISHED/CLOSED title, content, options, explanation and order are immutable;
+        edit through a new DRAFT. CLOSED cannot reopen. Closing blocks new attempts
+        but preserves submission of already-started attempts and all history.
+        Serialize publication with question/quiz mutations and deletion on the same
+        parent quiz so a concurrent edit cannot bypass published-content immutability.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicationWrite'
+      responses:
+        '200': { $ref: '#/components/responses/QuizAuthor' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Valid access JWT for an active account; logout revokes refresh sessions, not issued access JWTs.
+  parameters:
+    LessonId:
+      name: lesson_id
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Id' }
+    QuizId:
+      name: quiz_id
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Id' }
+    QuestionId:
+      name: question_id
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Id' }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: page_size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+  responses:
+    QuizAuthor:
+      description: Author view with questions/options ordered by order_index ascending.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/QuizAuthor' }
+    BadRequest:
+      description: |
+        VALIDATION_ERROR for malformed JSON, invalid IDs/parameters, nullability, unknown/
+        server-owned fields, invalid question/options or invalid generation lesson/type/
+        status. A non-null generation must exist and have status SUCCEEDED and type QUIZ.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthenticated:
+      description: UNAUTHENTICATED; missing, invalid or expired access token.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: |
+        FORBIDDEN for unauthorized course access or generation creator mismatch (including
+        ADMIN); ACCOUNT_INACTIVE for inactive accounts; ENROLLMENT_REQUIRED for an
+        unenrolled student. Route role alone never grants object access.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: |
+        NOT_FOUND for missing/invisible lesson, quiz or question, including repeated
+        DELETE and student access to DRAFT/CLOSED quizzes. No private content is leaked.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: |
+        State/unique-position conflict. INVALID_STATE for a mutation outside DRAFT or an
+        illegal/repeated publication transition; INVALID_QUIZ for invalid publish content;
+        RESOURCE_IN_USE when history prevents deletion. Duplicate order_index returns 409.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Id:
+      type: string
+      pattern: '^[1-9][0-9]*$'
+      maxLength: 19
+      description: Positive signed BIGINT as a decimal string; value <= 9223372036854775807.
+      examples: ['101']
+    UtcTimestamp:
+      type: string
+      format: date-time
+      pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$'
+      examples: ['2026-10-06T02:00:00Z']
+    Title:
+      type: string
+      minLength: 1
+      maxLength: 200
+      pattern: '\S'
+    OrderIndex:
+      type: integer
+      minimum: 0
+      maximum: 2147483647
+      description: Zero-based position; need not be contiguous; server never silently renumbers.
+    GenerationId:
+      description: |
+        Optional provenance, never client-controlled generated_by_ai. Non-null ID must
+        reference an existing SUCCEEDED QUIZ generation for the same lesson with
+        created_by equal to the authenticated actor, including when that actor is ADMIN.
+        Authorization to manage the lesson is checked independently. Manual create uses
+        absent/null. Updates preserve existing provenance on omission or explicit null;
+        null cannot erase verified provenance. Non-null updates revalidate provenance.
+      oneOf:
+        - $ref: '#/components/schemas/Id'
+        - type: 'null'
+    QuizStatus:
+      type: string
+      enum: [DRAFT, PUBLISHED, CLOSED]
+    QuizCreate:
+      type: object
+      additionalProperties: false
+      required: [title]
+      properties:
+        title: { $ref: '#/components/schemas/Title' }
+        generation_id: { $ref: '#/components/schemas/GenerationId' }
+    QuizPatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        title: { $ref: '#/components/schemas/Title' }
+        generation_id: { $ref: '#/components/schemas/GenerationId' }
+    QuestionContent:
+      type: string
+      minLength: 1
+      maxLength: 4000
+      pattern: '\S'
+    Explanation:
+      type: [string, 'null']
+      maxLength: 4000
+      description: Required on question writes; null means no explanation.
+    OptionContent:
+      type: string
+      minLength: 1
+      maxLength: 1000
+      pattern: '\S'
+    OptionWrite:
+      type: object
+      additionalProperties: false
+      required: [content, is_correct, order_index]
+      properties:
+        content: { $ref: '#/components/schemas/OptionContent' }
+        is_correct: { type: boolean }
+        order_index: { $ref: '#/components/schemas/OrderIndex' }
+    QuestionWrite:
+      type: object
+      additionalProperties: false
+      required: [content, explanation, order_index, options]
+      properties:
+        content: { $ref: '#/components/schemas/QuestionContent' }
+        explanation: { $ref: '#/components/schemas/Explanation' }
+        order_index: { $ref: '#/components/schemas/OrderIndex' }
+        generation_id: { $ref: '#/components/schemas/GenerationId' }
+        options:
+          type: array
+          minItems: 2
+          maxItems: 6
+          description: |
+            Exactly one correct option (also enforced by schema); option content must
+            be unique after normalization (server validation, 400). Option order_index
+            must be unique within this question (409). Question order_index must be
+            unique within the parent quiz (409). Question/options save atomically.
+          items: { $ref: '#/components/schemas/OptionWrite' }
+          contains:
+            type: object
+            required: [is_correct]
+            properties:
+              is_correct: { const: true }
+          minContains: 1
+          maxContains: 1
+    PublicationWrite:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [PUBLISHED, CLOSED] }
+    OptionAuthor:
+      type: object
+      additionalProperties: false
+      required: [id, content, is_correct, order_index]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        content: { $ref: '#/components/schemas/OptionContent' }
+        is_correct: { type: boolean }
+        order_index: { $ref: '#/components/schemas/OrderIndex' }
+    QuestionAuthor:
+      type: object
+      additionalProperties: false
+      required: [id, content, explanation, order_index, options, generated_by_ai]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        content: { $ref: '#/components/schemas/QuestionContent' }
+        explanation: { $ref: '#/components/schemas/Explanation' }
+        order_index: { $ref: '#/components/schemas/OrderIndex' }
+        generated_by_ai:
+          type: boolean
+          description: Server-derived from verified provenance, not client-editable.
+        options:
+          type: array
+          minItems: 2
+          maxItems: 6
+          items: { $ref: '#/components/schemas/OptionAuthor' }
+    QuizAuthor:
+      type: object
+      additionalProperties: false
+      required: [id, lesson_id, title, status, created_at, questions]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        lesson_id: { $ref: '#/components/schemas/Id' }
+        title: { $ref: '#/components/schemas/Title' }
+        status: { $ref: '#/components/schemas/QuizStatus' }
+        created_at: { $ref: '#/components/schemas/UtcTimestamp' }
+        questions:
+          type: array
+          description: May be empty in DRAFT; publication requires at least one valid question.
+          items: { $ref: '#/components/schemas/QuestionAuthor' }
+    OptionStudent:
+      type: object
+      additionalProperties: false
+      required: [id, content, order_index]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        content: { $ref: '#/components/schemas/OptionContent' }
+        order_index: { $ref: '#/components/schemas/OrderIndex' }
+    QuestionStudent:
+      type: object
+      additionalProperties: false
+      required: [id, content, order_index, options]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        content: { $ref: '#/components/schemas/QuestionContent' }
+        order_index: { $ref: '#/components/schemas/OrderIndex' }
+        options:
+          type: array
+          minItems: 2
+          maxItems: 6
+          items: { $ref: '#/components/schemas/OptionStudent' }
+    QuizStudent:
+      type: object
+      additionalProperties: false
+      required: [id, lesson_id, title, status, questions]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        lesson_id: { $ref: '#/components/schemas/Id' }
+        title: { $ref: '#/components/schemas/Title' }
+        status: { type: string, const: PUBLISHED }
+        questions:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/QuestionStudent' }
+    QuizSummary:
+      type: object
+      additionalProperties: false
+      required: [id, lesson_id, title, status, question_count]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        lesson_id: { $ref: '#/components/schemas/Id' }
+        title: { $ref: '#/components/schemas/Title' }
+        status: { $ref: '#/components/schemas/QuizStatus' }
+        question_count: { type: integer, minimum: 0 }
+    QuizPage:
+      type: object
+      additionalProperties: false
+      required: [items, page, page_size, total]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          description: Length <= page_size; enrolled students receive only PUBLISHED summaries.
+          items: { $ref: '#/components/schemas/QuizSummary' }
+        page: { type: integer, minimum: 1 }
+        page_size: { type: integer, minimum: 1, maximum: 100 }
+        total: { type: integer, minimum: 0, description: Count after visibility filtering. }
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message, details, request_id]
+      properties:
+        code: { type: string, minLength: 1 }
+        message: { type: string, minLength: 1 }
+        details:
+          type: array
+          description: Always present; empty when no field-level details are applicable.
+          items: { $ref: '#/components/schemas/ErrorDetail' }
+        request_id: { type: string, minLength: 1 }
+    ErrorDetail:
+      type: object
+      additionalProperties: false
+      required: [field, message]
+      properties:
+        field: { type: string, minLength: 1, description: 'Request field/path, e.g. options[0].content.' }
+        message: { type: string, minLength: 1 }
