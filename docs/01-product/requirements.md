@@ -4,7 +4,7 @@ Nguồn: README gốc. ID nối yêu cầu → API → dữ liệu → tình hu�
 
 | ID | MVP | Điều kiện nghiệm thu |
 |---|---|---|
-| AUTH-01 | Đăng ký, đăng nhập, đăng xuất | Đăng ký chỉ STUDENT; mật khẩu băm; logout vô hiệu phiên |
+| AUTH-01 | Đăng ký, đăng nhập, đăng xuất | Đăng ký chỉ STUDENT; mật khẩu băm; logout thu hồi refresh session và xóa cookie; access token còn hiệu lực đến exp nếu user active |
 | AUTH-02 | Role và khóa tài khoản | Kiểm tra ADMIN/TEACHER/STUDENT và trạng thái active |
 | USER-01 | Phê duyệt Teacher | Admin quyết định; user không tự cấp quyền |
 | CAT-01 | Danh mục | Admin CRUD; không xóa danh mục đang dùng |

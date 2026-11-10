@@ -9,7 +9,7 @@ Tài khoản demo: admin, teacher A/B, student A/B; credential cấu hình riên
 3. Generate quiz preview, sửa một câu, lưu Draft, publish; tương tự flashcard nếu D07 giữ.
 4. Student đăng ký/login, marketplace, enroll, video/document, quiz submit, result/review/history, flashcard.
 5. Teacher xem thống kê; teacher B thử sửa khóa A bị chặn.
-6. Retry submit trả cùng điểm; logout không dùng lại session.
+6. Retry submit trả cùng điểm; logout thu hồi refresh session, xóa cookie và access token ở frontend; refresh bằng token cũ bị chặn, access token cũ còn hợp lệ đến exp nếu user active và đủ quyền; logout retry trả 204.
 7. Mở ERD/query và giải thích transaction, constraints, API portability.
 
 ## Hồ sơ bàn giao

@@ -2,8 +2,7 @@ package vn.edu.learningai.service;
 
 /**
  * Kiểm tra quyền theo bài học (lesson → course → owner/admin hoặc student đã ghi danh).
- * Dùng chung với phần bài học/khóa học; khi LessonService thật có trên develop thì cài đặt interface này
- * và bỏ stub.
+ * LessonService cài đặt chính sách này cho API bài học, AI và flashcard.
  */
 public interface LessonAccessPolicy {
 
@@ -15,7 +14,6 @@ public interface LessonAccessPolicy {
      * (student chỉ thấy Published). Không ghi danh → ENROLLMENT_REQUIRED.
      */
     LessonViewAccess assertCanViewLesson(Long lessonId, Long userId);
-
     enum LessonViewAccess {
         MANAGER,
         ENROLLED_STUDENT
