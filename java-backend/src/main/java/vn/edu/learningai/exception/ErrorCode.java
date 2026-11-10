@@ -19,7 +19,6 @@ public enum ErrorCode {
     INVALID_QUIZ(HttpStatus.CONFLICT, "Quiz content is invalid for publication"),
     RESOURCE_IN_USE(HttpStatus.CONFLICT, "Resource is in use"),
 
-    ENROLLMENT_REQUIRED(HttpStatus.FORBIDDEN, "Course enrollment required"),
     COURSE_NOT_FREE(HttpStatus.CONFLICT, "Only free courses can be enrolled"),
     LESSON_DELETE_BLOCKED(HttpStatus.CONFLICT, "Lesson has learning history and cannot be deleted"),
 

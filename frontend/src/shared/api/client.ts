@@ -185,12 +185,14 @@ export const apiPatch = <T>(path: string, body?: unknown, options?: RequestOptio
   apiRequest<T>('PATCH', path, { ...options, body })
 export const apiDelete = <T = void>(path: string, options?: RequestOptions) =>
   apiRequest<T>('DELETE', path, options)
-export async function apiGetBlob(path: string, options: Omit<RequestOptions, 'body'> = {}): Promise<Blob> {
+export async function apiGetBlob(path: string, options: Omit<RequestOptions, 'body'> = {}, retried = false): Promise<Blob> {
+  const token = options.auth === false ? null : accessTokenProvider()
   let response: Response
   try {
     response = await fetch(buildUrl(path, options.query), {
       method: 'GET',
-      headers: buildHeaders(options),
+      headers: buildHeaders(options, token),
+      credentials: 'include',
       signal: options.signal,
     })
   } catch (error) {
@@ -199,7 +201,25 @@ export async function apiGetBlob(path: string, options: Omit<RequestOptions, 'bo
   }
   if (!response.ok) {
     const apiError = await toApiError(response)
-    if (response.status === 401) unauthorizedHandler?.()
+    if (response.status === 401 && token) {
+      if (!retried && refreshTokenHandler) {
+        try {
+          if (accessTokenProvider() === token) {
+            await refreshTokenHandler()
+          }
+        } catch (error) {
+          if (isApiError(error) && (error.status === 401 || error.code === 'ACCOUNT_INACTIVE')) {
+            expireSession()
+          }
+          throw error
+        }
+        options.signal?.throwIfAborted()
+        return apiGetBlob(path, options, true)
+      }
+      expireSession()
+    } else if (token && apiError.code === 'ACCOUNT_INACTIVE') {
+      expireSession()
+    }
     throw apiError
   }
   return response.blob()

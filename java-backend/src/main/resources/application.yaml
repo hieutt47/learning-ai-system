@@ -32,7 +32,6 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: true
-
 jwt:
   jwt-signing-key: ${JWT_SIGNING_KEY}
   access-ttl: 900000 # ms - 15 mins

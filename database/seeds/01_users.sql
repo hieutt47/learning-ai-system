@@ -23,4 +23,3 @@ VALUES
     ('Demo Disabled Student', 'student.disabled@example.test',
      '$2a$10$bFg0Uq5.UygBCKwsScucYucZDUyw0V9REwur9S2nCBC0xhUrzuMqa',
      'STUDENT', FALSE, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
-

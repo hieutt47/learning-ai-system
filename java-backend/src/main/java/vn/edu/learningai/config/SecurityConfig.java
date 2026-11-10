@@ -90,10 +90,12 @@ public class SecurityConfig {
                     .hasAnyRole("TEACHER", "ADMIN")
                 .requestMatchers(HttpMethod.PATCH,
                     "/api/v1/courses/*", "/api/v1/courses/*/publication", "/api/v1/courses/*/archive",
-                    "/api/v1/lessons/*", "/api/v1/quizzes/*", "/api/v1/quizzes/*/publication",
+                    "/api/v1/courses/*/lessons/order", "/api/v1/lessons/*",
+                    "/api/v1/quizzes/*", "/api/v1/quizzes/*/publication",
                     "/api/v1/flashcards/*", "/api/v1/flashcards/*/publication")
                     .hasAnyRole("TEACHER", "ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/api/v1/questions/*").hasAnyRole("TEACHER", "ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/v1/lessons/*", "/api/v1/questions/*")
+                    .hasAnyRole("TEACHER", "ADMIN")
                 .requestMatchers(HttpMethod.DELETE,
                     "/api/v1/courses/*", "/api/v1/lessons/*", "/api/v1/documents/*",
                     "/api/v1/quizzes/*", "/api/v1/questions/*", "/api/v1/flashcards/*")
