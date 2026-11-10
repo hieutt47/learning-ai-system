@@ -1,0 +1,33 @@
+# Integration-test profile: real MySQL, real Flyway.
+# Point DBMS_TEST_CONNECTION/DBMS_TEST_USERNAME/DBMS_TEST_PASSWORD at a throwaway
+# database; the schema is dropped and re-migrated on every run.
+spring:
+  datasource:
+    url: ${DBMS_TEST_CONNECTION:jdbc:mysql://127.0.0.1:3307/learningai_test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${DBMS_TEST_USERNAME:learningai}
+    password: ${DBMS_TEST_PASSWORD:testpass}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    clean-disabled: false
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+app:
+  storage:
+    # Never write into the developer's ./uploads during tests.
+    location: ${java.io.tmpdir}/learningai-test-uploads
+    public-base-url: /api/v1/files
+    lesson-documents: ${java.io.tmpdir}/learningai-test-lesson-documents
+
+# Test-only signing key. Not a secret: it must never be used outside tests.
+jwt:
+  jwt-signing-key: dGVzdC1vbmx5LXNpZ25pbmctbWF0ZXJpYWwtMzJieXRlcyEh
+  access-ttl: 900000
+  refresh-ttl: 604800000
+
+logging:
+  level:
+    org.hibernate.SQL: warn
