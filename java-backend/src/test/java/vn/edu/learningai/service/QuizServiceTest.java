@@ -27,6 +27,7 @@ import vn.edu.learningai.entity.Quiz;
 import vn.edu.learningai.entity.User;
 import vn.edu.learningai.exception.ApiException;
 import vn.edu.learningai.exception.ErrorCode;
+import org.mapstruct.factory.Mappers;
 import vn.edu.learningai.mapper.QuizMapper;
 import vn.edu.learningai.repository.QuestionOptionRepository;
 import vn.edu.learningai.repository.QuestionRepository;
@@ -55,7 +56,7 @@ class QuizServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new QuizService(quizzes, questions, options, context, new QuizMapper(), security);
+        service = new QuizService(quizzes, questions, options, context, Mappers.getMapper(QuizMapper.class), security);
     }
 
     @Test

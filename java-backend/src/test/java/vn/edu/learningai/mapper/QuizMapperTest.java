@@ -1,6 +1,7 @@
 package vn.edu.learningai.mapper;
 
 import org.junit.jupiter.api.Test;
+import org.mapstruct.factory.Mappers;
 import tools.jackson.databind.json.JsonMapper;
 import vn.edu.learningai.common.enums.QuizStatus;
 import vn.edu.learningai.entity.Question;
@@ -14,7 +15,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class QuizMapperTest {
-    private final QuizMapper mapper = new QuizMapper();
+    private final QuizMapper mapper = Mappers.getMapper(QuizMapper.class);
     private final JsonMapper json = JsonMapper.builder().build();
 
     private Quiz quiz() {
