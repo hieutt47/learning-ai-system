@@ -26,6 +26,10 @@ import { SCREENS, type ScreenKey } from './screens'
 import { LessonAiPage } from '../../features/teaching/ai/LessonAiPage'
 import { AiPreviewPage } from '../../features/teaching/ai/AiPreviewPage'
 import { LearnFlashcardsPage } from '../../features/learning/flashcards/LearnFlashcardsPage'
+import { LessonQuizzesPage } from '../../features/teaching/quizzes/LessonQuizzesPage'
+import { QuizEditorPage } from '../../features/teaching/quizzes/QuizEditorPage'
+import { LearningQuizPage } from '../../features/learning/LearningQuizPage'
+import { AttemptsHistoryPage } from '../../features/learning/attempts/AttemptsHistoryPage'
 
 /**
  * Bảng route của cả app, theo các màn (VIEWS), tab (tabsBar) và quyền (ACCESS) trong
@@ -124,7 +128,11 @@ export const router = createBrowserRouter([
             handle: { title: 'Học bài', tabs: learnTabs } satisfies RouteHandle,
             children: [
               { index: true, element: <LearningDocumentsPage /> },
-              { path: 'quiz', ...todo('learnQuiz') },
+              {
+                path: 'quiz',
+                element: <LearningQuizPage />,
+                handle: { title: 'Học bài · Quiz' } satisfies RouteHandle,
+              },
               {
                 path: 'flashcards',
                 element: <LearnFlashcardsPage />,
@@ -134,7 +142,11 @@ export const router = createBrowserRouter([
           },
           { path: '/quizzes/:quizId', ...todo('takeQuiz') },
           { path: '/results/:attemptId', ...todo('attemptResult') },
-          { path: paths.attempts, ...todo('attempts') },
+          {
+            path: paths.attempts,
+            element: <AttemptsHistoryPage />,
+            handle: { title: 'Lịch sử làm bài' } satisfies RouteHandle,
+          },
         ],
       },
       // Giảng viên
@@ -162,7 +174,11 @@ export const router = createBrowserRouter([
             handle: { title: 'Soạn bài học', tabs: lessonTabs } satisfies RouteHandle,
             children: [
               { index: true, element: <LessonEditorPage /> },
-              { path: 'quizzes', ...todo('lessonQuizzes') },
+              {
+                path: 'quizzes',
+                element: <LessonQuizzesPage />,
+                handle: { title: 'Soạn bài học · Quiz' } satisfies RouteHandle,
+              },
               {
                 path: 'ai',
                 element: <LessonAiPage />,
@@ -175,7 +191,11 @@ export const router = createBrowserRouter([
               },
             ],
           },
-          { path: '/teaching/quizzes/:quizId/edit', ...todo('quizEditor') },
+          {
+            path: '/teaching/quizzes/:quizId/edit',
+            element: <QuizEditorPage />,
+            handle: { title: 'Soạn quiz' } satisfies RouteHandle,
+          },
           { path: paths.teachingStatistics, ...todo('courseStatistics') },
           { path: '/teaching/statistics/quizzes/:quizId', ...todo('quizStatistics') },
         ],
