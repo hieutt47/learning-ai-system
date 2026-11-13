@@ -30,6 +30,8 @@ import { LessonQuizzesPage } from '../../features/teaching/quizzes/LessonQuizzes
 import { QuizEditorPage } from '../../features/teaching/quizzes/QuizEditorPage'
 import { LearningQuizPage } from '../../features/learning/LearningQuizPage'
 import { AttemptsHistoryPage } from '../../features/learning/attempts/AttemptsHistoryPage'
+import { TakeQuizPage } from '../../features/learning/quizzes/TakeQuizPage'
+import { AttemptResultPage } from '../../features/learning/quizzes/AttemptResultPage'
 
 /**
  * Bảng route của cả app, theo các màn (VIEWS), tab (tabsBar) và quyền (ACCESS) trong
@@ -140,8 +142,16 @@ export const router = createBrowserRouter([
               },
             ],
           },
-          { path: '/quizzes/:quizId', ...todo('takeQuiz') },
-          { path: '/results/:attemptId', ...todo('attemptResult') },
+          {
+            path: '/quizzes/:quizId',
+            element: <TakeQuizPage />,
+            handle: { title: 'Làm bài quiz' } satisfies RouteHandle,
+          },
+          {
+            path: '/results/:attemptId',
+            element: <AttemptResultPage />,
+            handle: { title: 'Kết quả' } satisfies RouteHandle,
+          },
           {
             path: paths.attempts,
             element: <AttemptsHistoryPage />,

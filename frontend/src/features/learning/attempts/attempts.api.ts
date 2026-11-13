@@ -1,6 +1,6 @@
 import { apiGet } from '../../../shared/api/client'
 import type { Page, PageParams } from '../../../shared/api/types'
-import type { AttemptStatus, AttemptSummaryItem } from './attempts.types'
+import type { AttemptDetail, AttemptStatus, AttemptSummaryItem } from './attempts.types'
 
 interface AttemptSummaryWire {
   id: string | number
@@ -14,8 +14,40 @@ interface AttemptSummaryWire {
   submitted_at?: string | null
 }
 
+const STORAGE_KEY = 'learningai_attempts'
+
+function getStoredAttempts(): AttemptDetail[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+export function saveStoredAttempt(attempt: AttemptDetail): void {
+  try {
+    const attempts = getStoredAttempts()
+    const index = attempts.findIndex((a) => a.id === attempt.id)
+    if (index >= 0) {
+      attempts[index] = attempt
+    } else {
+      attempts.unshift(attempt)
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(attempts))
+  } catch {
+    // ignore
+  }
+}
+
+export function getStoredAttempt(attemptId: string): AttemptDetail | null {
+  const attempts = getStoredAttempts()
+  return attempts.find((a) => a.id === attemptId) ?? null
+}
+
 export const attemptKeys = {
   mine: (params?: PageParams) => ['attempts', 'mine', params] as const,
+  detail: (attemptId: string) => ['attempts', 'detail', attemptId] as const,
 }
 
 export async function getMyAttempts(params?: PageParams): Promise<Page<AttemptSummaryItem>> {
@@ -38,12 +70,36 @@ export async function getMyAttempts(params?: PageParams): Promise<Page<AttemptSu
       })),
     }
   } catch {
-    // Nếu backend chưa triển khai endpoint này (trả 404), trả về danh sách rỗng để hiển thị empty state
+    // Khi backend chưa cài đặt API attempts, đọc từ localStorage để người dùng thấy ngay lịch sử đã làm
+    const stored = getStoredAttempts()
+    const page = params?.page ?? 1
+    const pageSize = params?.page_size ?? 10
+    const start = (page - 1) * pageSize
+    const paged = stored.slice(start, start + pageSize).map((a) => ({
+      id: a.id,
+      quizId: a.quizId,
+      quizTitle: a.quizTitle,
+      courseId: a.courseId,
+      status: a.status,
+      score: a.score,
+      startedAt: a.startedAt,
+      submittedAt: a.submittedAt,
+    }))
     return {
-      items: [],
-      page: 1,
-      page_size: 10,
-      total: 0,
+      items: paged,
+      page,
+      page_size: pageSize,
+      total: stored.length,
     }
+  }
+}
+
+export async function getAttemptDetail(attemptId: string): Promise<AttemptDetail> {
+  try {
+    return await apiGet<AttemptDetail>(`/attempts/${attemptId}`)
+  } catch {
+    const local = getStoredAttempt(attemptId)
+    if (local) return local
+    throw new Error('Không tìm thấy thông tin lượt làm bài.')
   }
 }

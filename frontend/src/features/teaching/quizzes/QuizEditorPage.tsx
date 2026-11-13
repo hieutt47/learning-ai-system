@@ -1,4 +1,6 @@
 import {
+  ArrowDownOutlined,
+  ArrowUpOutlined,
   CheckCircleFilled,
   CloseCircleFilled,
   DeleteOutlined,
@@ -19,9 +21,10 @@ import {
   Row,
   Space,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { ErrorState, LoadingState } from '../../../shared/components/PageState'
 import { usePageHeader } from '../../../shared/components/pageHeader'
@@ -105,29 +108,50 @@ function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
   const [deletedQuestionIds, setDeletedQuestionIds] = useState<string[]>([])
   const [isDirty, setIsDirty] = useState(false)
 
-  // Checklist kiểm tra điều kiện xuất bản
+  // Cảnh báo khi người dùng rời trang lúc chưa lưu
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isDirty])
+
+  // Checklist chi tiết từng câu hỏi
   const validation = useMemo(() => {
     const hasQuestions = questions.length >= 1
-    const validOptionCount = questions.every(
-      (q) => q.options.length >= 2 && q.options.length <= 6,
-    )
-    const exactlyOneCorrect = questions.every(
-      (q) => q.options.filter((o) => o.isCorrect).length === 1,
-    )
-    const allContentFilled = questions.every(
-      (q) =>
-        q.content.trim().length > 0 &&
-        q.options.every((o) => o.content.trim().length > 0),
-    )
+
+    const invalidOptionCounts = questions
+      .map((q, i) => (q.options.length < 2 || q.options.length > 6 ? i + 1 : 0))
+      .filter(Boolean)
+
+    const invalidCorrectAnswers = questions
+      .map((q, i) => (q.options.filter((o) => o.isCorrect).length !== 1 ? i + 1 : 0))
+      .filter(Boolean)
+
+    const emptyContents = questions
+      .map((q, i) =>
+        !q.content.trim() || q.options.some((o) => !o.content.trim()) ? i + 1 : 0,
+      )
+      .filter(Boolean)
 
     const canPublish =
-      hasQuestions && validOptionCount && exactlyOneCorrect && allContentFilled
+      hasQuestions &&
+      invalidOptionCounts.length === 0 &&
+      invalidCorrectAnswers.length === 0 &&
+      emptyContents.length === 0
 
     return {
       hasQuestions,
-      validOptionCount,
-      exactlyOneCorrect,
-      allContentFilled,
+      validOptionCount: invalidOptionCounts.length === 0,
+      invalidOptionCounts,
+      exactlyOneCorrect: invalidCorrectAnswers.length === 0,
+      invalidCorrectAnswers,
+      allContentFilled: emptyContents.length === 0,
+      emptyContents,
       canPublish,
     }
   }, [questions])
@@ -168,7 +192,7 @@ function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
       await queryClient.invalidateQueries({ queryKey: quizKeys.lesson(quiz.lessonId) })
       setIsDirty(false)
       setDeletedQuestionIds([])
-      void message.success('Đã lưu nội dung quiz.')
+      void message.success('Đã lưu nội dung quiz thành công.')
     },
     onError: (error: Error) => void message.error(error.message),
   })
@@ -184,7 +208,7 @@ function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: quizKeys.detail(quiz.id) })
       await queryClient.invalidateQueries({ queryKey: quizKeys.lesson(quiz.lessonId) })
-      void message.success('Xuất bản quiz thành công! Sinh viên đã có thể làm bài.')
+      void message.success('Xuất bản quiz thành công! Sinh viên đã có thể bắt đầu làm bài.')
     },
     onError: (error: Error) => void message.error(error.message),
   })
@@ -238,10 +262,32 @@ function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
 
   const handleDeleteQuestion = (index: number) => {
     const target = questions[index]
-    if (target.id && !target.isNew) {
-      setDeletedQuestionIds((prev) => [...prev, target.id!])
-    }
-    setQuestions((prev) => prev.filter((_, i) => i !== index))
+    modal.confirm({
+      title: `Xóa câu ${index + 1}?`,
+      content: 'Nội dung câu hỏi này sẽ bị xóa khỏi bản nháp.',
+      okText: 'Xóa câu',
+      okButtonProps: { danger: true },
+      cancelText: 'Hủy',
+      onOk: () => {
+        if (target.id && !target.isNew) {
+          setDeletedQuestionIds((prev) => [...prev, target.id!])
+        }
+        setQuestions((prev) => prev.filter((_, i) => i !== index))
+        setIsDirty(true)
+      },
+    })
+  }
+
+  const handleMoveQuestion = (index: number, direction: 'UP' | 'DOWN') => {
+    const targetIndex = direction === 'UP' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= questions.length) return
+    setQuestions((prev) => {
+      const copy = [...prev]
+      const temp = copy[index]
+      copy[index] = copy[targetIndex]
+      copy[targetIndex] = temp
+      return copy.map((q, idx) => ({ ...q, orderIndex: idx }))
+    })
     setIsDirty(true)
   }
 
@@ -371,7 +417,7 @@ function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
           )}
 
           <Card title="Thông tin quiz">
-            <Typography.Text strong>Tên quiz</Typography.Text>
+            <Typography.Text strong>Tên bài kiểm tra (Quiz)</Typography.Text>
             <Input
               value={title}
               disabled={isReadOnly}
@@ -391,7 +437,7 @@ function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
               key={q.id || `new-${qIndex}`}
               title={
                 <Space>
-                  <span>Câu {qIndex + 1}</span>
+                  <span style={{ fontSize: 16, fontWeight: 700 }}>Câu {qIndex + 1}</span>
                   {q.generatedByAi && (
                     <Tag color="purple" icon={<ThunderboltOutlined />}>
                       AI tạo
@@ -400,17 +446,37 @@ function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
                 </Space>
               }
               extra={
-                !isReadOnly && (
-                  <Button
-                    type="text"
-                    danger
-                    icon={<DeleteOutlined />}
-                    disabled={questions.length <= 1}
-                    onClick={() => handleDeleteQuestion(qIndex)}
-                  >
-                    Xóa câu
-                  </Button>
-                )
+                <Space>
+                  {!isReadOnly && (
+                    <>
+                      <Tooltip title="Chuyển lên">
+                        <Button
+                          type="text"
+                          icon={<ArrowUpOutlined />}
+                          disabled={qIndex === 0}
+                          onClick={() => handleMoveQuestion(qIndex, 'UP')}
+                        />
+                      </Tooltip>
+                      <Tooltip title="Chuyển xuống">
+                        <Button
+                          type="text"
+                          icon={<ArrowDownOutlined />}
+                          disabled={qIndex === questions.length - 1}
+                          onClick={() => handleMoveQuestion(qIndex, 'DOWN')}
+                        />
+                      </Tooltip>
+                      <Button
+                        type="text"
+                        danger
+                        icon={<DeleteOutlined />}
+                        disabled={questions.length <= 1}
+                        onClick={() => handleDeleteQuestion(qIndex)}
+                      >
+                        Xóa câu
+                      </Button>
+                    </>
+                  )}
+                </Space>
               }
             >
               <Space orientation="vertical" size={16} style={{ width: '100%' }}>
@@ -431,10 +497,14 @@ function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
                 </div>
 
                 <div>
-                  <Typography.Text strong>
-                    Các lựa chọn đáp án (chọn tròn để đặt làm đáp án đúng){' '}
-                    <span style={{ color: 'red' }}>*</span>
-                  </Typography.Text>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography.Text strong>
+                      Các lựa chọn đáp án <span style={{ color: 'red' }}>*</span>
+                    </Typography.Text>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      (Chọn nút tròn để đánh dấu đáp án đúng)
+                    </Typography.Text>
+                  </div>
                   <div style={{ marginTop: 8 }}>
                     <Radio.Group
                       style={{ width: '100%' }}
@@ -444,22 +514,35 @@ function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
                       }
                       disabled={isReadOnly}
                     >
-                      <Space orientation="vertical" size={12} style={{ width: '100%' }}>
-                        {q.options.map((opt, oIndex) => (
-                          <Row
-                            key={opt.id || `opt-${oIndex}`}
-                            gutter={8}
-                            align="middle"
-                            style={{ width: '100%' }}
-                          >
-                            <Col flex="32px">
+                      <Space orientation="vertical" size={10} style={{ width: '100%' }}>
+                        {q.options.map((opt, oIndex) => {
+                          const isCorrect = opt.isCorrect
+                          return (
+                            <div
+                              key={opt.id || `opt-${oIndex}`}
+                              onClick={() => !isReadOnly && handleSetCorrectOption(qIndex, oIndex)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 12,
+                                padding: '8px 12px',
+                                borderRadius: 8,
+                                border: `1.5px solid ${isCorrect ? '#52c41a' : '#f0f0f0'}`,
+                                background: isCorrect ? '#f6ffed' : '#fafafa',
+                                cursor: isReadOnly ? 'default' : 'pointer',
+                                transition: 'all 0.2s',
+                              }}
+                            >
                               <Radio value={oIndex} />
-                            </Col>
-                            <Col flex="auto">
+                              <span style={{ fontWeight: 600, width: 24 }}>
+                                {String.fromCharCode(65 + oIndex)}.
+                              </span>
                               <Input
                                 value={opt.content}
                                 disabled={isReadOnly}
-                                placeholder={`Nội dung lựa chọn ${oIndex + 1}…`}
+                                placeholder={`Nhập lựa chọn ${String.fromCharCode(65 + oIndex)}…`}
+                                style={{ flex: 1, background: '#fff' }}
+                                onClick={(e) => e.stopPropagation()}
                                 onChange={(e) =>
                                   handleOptionContentChange(
                                     qIndex,
@@ -468,22 +551,23 @@ function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
                                   )
                                 }
                               />
-                            </Col>
-                            {!isReadOnly && (
-                              <Col flex="32px">
-                                <Button
-                                  type="text"
-                                  danger
-                                  icon={<DeleteOutlined />}
-                                  disabled={q.options.length <= 2}
-                                  onClick={() =>
-                                    handleDeleteOption(qIndex, oIndex)
-                                  }
-                                />
-                              </Col>
-                            )}
-                          </Row>
-                        ))}
+                              {!isReadOnly && (
+                                <Tooltip title="Xóa lựa chọn này">
+                                  <Button
+                                    type="text"
+                                    danger
+                                    icon={<DeleteOutlined />}
+                                    disabled={q.options.length <= 2}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleDeleteOption(qIndex, oIndex)
+                                    }}
+                                  />
+                                </Tooltip>
+                              )}
+                            </div>
+                          )
+                        })}
                       </Space>
                     </Radio.Group>
                   </div>
@@ -525,7 +609,7 @@ function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
               type="dashed"
               icon={<PlusOutlined />}
               onClick={handleAddQuestion}
-              style={{ width: '100%', height: 48 }}
+              style={{ width: '100%', height: 48, fontSize: 15 }}
             >
               Thêm câu hỏi mới
             </Button>
@@ -585,7 +669,7 @@ function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
 
           {quiz.status === 'DRAFT' && (
             <Card title="Điều kiện xuất bản">
-              <Space orientation="vertical" size={10} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={12} style={{ width: '100%' }}>
                 <CheckItem
                   passed={validation.hasQuestions}
                   text="Có ít nhất 1 câu hỏi"
@@ -593,14 +677,29 @@ function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
                 <CheckItem
                   passed={validation.validOptionCount}
                   text="Mỗi câu có từ 2 đến 6 đáp án"
+                  details={
+                    validation.invalidOptionCounts.length > 0
+                      ? `Câu chưa đúng: Câu ${validation.invalidOptionCounts.join(', ')}`
+                      : undefined
+                  }
                 />
                 <CheckItem
                   passed={validation.exactlyOneCorrect}
                   text="Mỗi câu có đúng 1 đáp án đúng"
+                  details={
+                    validation.invalidCorrectAnswers.length > 0
+                      ? `Câu chưa có đáp án đúng: Câu ${validation.invalidCorrectAnswers.join(', ')}`
+                      : undefined
+                  }
                 />
                 <CheckItem
                   passed={validation.allContentFilled}
                   text="Câu hỏi và đáp án không được để trống"
+                  details={
+                    validation.emptyContents.length > 0
+                      ? `Câu còn để trống: Câu ${validation.emptyContents.join(', ')}`
+                      : undefined
+                  }
                 />
               </Space>
             </Card>
@@ -611,15 +710,30 @@ function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
   )
 }
 
-function CheckItem({ passed, text }: { passed: boolean; text: string }) {
+function CheckItem({
+  passed,
+  text,
+  details,
+}: {
+  passed: boolean
+  text: string
+  details?: string
+}) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      {passed ? (
-        <CheckCircleFilled style={{ color: '#52c41a', fontSize: 16 }} />
-      ) : (
-        <CloseCircleFilled style={{ color: '#ff4d4f', fontSize: 16 }} />
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {passed ? (
+          <CheckCircleFilled style={{ color: '#52c41a', fontSize: 16 }} />
+        ) : (
+          <CloseCircleFilled style={{ color: '#ff4d4f', fontSize: 16 }} />
+        )}
+        <span style={{ color: passed ? 'inherit' : 'rgba(0, 0, 0, 0.65)' }}>{text}</span>
+      </div>
+      {!passed && details && (
+        <div style={{ marginLeft: 24, marginTop: 4, fontSize: 12, color: '#ff4d4f' }}>
+          {details}
+        </div>
       )}
-      <span style={{ color: passed ? 'inherit' : 'rgba(0, 0, 0, 0.45)' }}>{text}</span>
     </div>
   )
 }
