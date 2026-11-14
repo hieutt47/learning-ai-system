@@ -6,6 +6,7 @@ DB MySQL 8 (InnoDB, utf8mb4). PK BIGINT AUTO_INCREMENT; wire ID string. Thời g
 |---|---|
 | users | id PK, full_name VARCHAR(120), email VARCHAR(254) UNIQUE normalized, password_hash VARCHAR(255), role VARCHAR CHECK ADMIN/TEACHER/STUDENT, is_active BOOLEAN, email_verified_at? DATETIME(6), created_at, updated_at |
 | email_verification_tokens | id PK, user_id FK users, token_hash VARCHAR(64) UNIQUE, expires_at DATETIME(6), used_at? DATETIME(6) |
+| password_reset_tokens | id PK, user_id FK users, token_hash VARCHAR(64) UNIQUE, expires_at DATETIME(6), used_at? DATETIME(6) |
 | auth_sessions | id PK, user_id FK users, refresh_token_hash VARCHAR(255) UNIQUE, expires_at, revoked_at?, created_at, updated_at |
 | teacher_requests | id PK, user_id FK users, reason TEXT, status CHECK PENDING/APPROVED/REJECTED, decided_by? FK users, decision_note? TEXT, decided_at?, created_at |
 | categories | id PK, name VARCHAR(120) UNIQUE, description? TEXT, created_at, updated_at |
@@ -24,6 +25,7 @@ DB MySQL 8 (InnoDB, utf8mb4). PK BIGINT AUTO_INCREMENT; wire ID string. Thời g
 ## Ràng buộc và chỉ mục
 
 - Email lưu normalized lowercase; UNIQUE thực tế dùng cùng quy tắc register/login/import.
+- password_reset_tokens trong V5 chỉ lưu hash SHA-256 của token ngẫu nhiên, hạn 30 phút; used_at đánh dấu đã dùng hoặc bị vô hiệu hóa. Gửi link mới vô hiệu hóa các link cũ; đặt lại mật khẩu thành công vô hiệu hóa mọi token của user và thu hồi tất cả refresh session trong cùng transaction. Service khóa dòng user trước khi xử lý token; không dùng chung token với email_verification_tokens.
 - MySQL không có partial/filtered index. Ràng buộc "duy nhất khi ở trạng thái X" làm bằng generated column trả NULL ngoài trạng thái X kèm UNIQUE (UNIQUE cho phép nhiều NULL), và service vẫn kiểm tra trong transaction.
 - Một Teacher request PENDING/user được kiểm soát tại service: khóa dòng user, kiểm tra PENDING và tạo yêu cầu trong cùng transaction. ck_teacher_requests_decision trong V3 yêu cầu PENDING có decided_by/decision_note/decided_at NULL, APPROVED/REJECTED có decided_by/decided_at; ck_teacher_requests_no_self_approval cấm tự approve. Service không cho admin tự xét duyệt yêu cầu của mình.
 - auth_sessions index user_id; login đặt expires_at = thời điểm đăng nhập + 7 ngày. Refresh kiểm tra revoked_at/expires_at và user active; thành công thì thay refresh_token_hash và cập nhật expires_at = thời điểm refresh + 7 ngày trong cùng transaction. Phiên hết hạn không được gia hạn; chưa có hạn tuyệt đối. Logout thu hồi refresh session; private request kiểm tra chữ ký/hạn access JWT và user active, access token đã phát hành còn hiệu lực đến exp.

@@ -128,6 +128,9 @@ export function LoginPage() {
             iconRender={(visible) => <Icon name={visible ? 'eyeoff' : 'eye'} />}
           />
         </Form.Item>
+        <Form.Item>
+          <Link to={paths.forgotPassword}>Quên mật khẩu?</Link>
+        </Form.Item>
         <Form.Item className="auth-actions">
           <Button type="primary" htmlType="submit" block loading={mutation.isPending} aria-label="Đăng nhập" aria-busy={mutation.isPending}>Đăng nhập</Button>
         </Form.Item>

@@ -7,6 +7,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import vn.edu.learningai.dto.request.ChangePasswordRequest;
+import vn.edu.learningai.dto.request.ForgotPasswordRequest;
+import vn.edu.learningai.dto.request.ResetPasswordRequest;
 import vn.edu.learningai.dto.request.LoginRequest;
 import vn.edu.learningai.dto.request.RegisterRequest;
 import vn.edu.learningai.dto.response.AuthResponse;
@@ -14,6 +16,7 @@ import vn.edu.learningai.dto.response.UserResponse;
 import vn.edu.learningai.security.service.RefreshTokenCookieService;
 import vn.edu.learningai.service.AuthService;
 import vn.edu.learningai.service.EmailVerificationService;
+import vn.edu.learningai.service.PasswordResetService;
 import vn.edu.learningai.dto.request.VerifyEmailRequest;
 import vn.edu.learningai.dto.request.ResendVerificationEmailRequest;
 
@@ -23,6 +26,7 @@ import vn.edu.learningai.dto.request.ResendVerificationEmailRequest;
 public class AuthController {
     private final AuthService authService;
     private final EmailVerificationService emailVerificationService;
+    private final PasswordResetService passwordResetService;
     private final RefreshTokenCookieService refreshTokenCookieService;
 
     @PostMapping("/register")
@@ -41,6 +45,20 @@ public class AuthController {
     public ResponseEntity<Void> resendVerification(@Valid @RequestBody ResendVerificationEmailRequest request) {
         emailVerificationService.resendVerificationEmail(request.getEmail());
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        passwordResetService.forgotPassword(request.getEmail());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.resetPassword(request);
+        return ResponseEntity.noContent()
+            .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.clear().toString())
+            .build();
     }
 
     @PostMapping("/login")

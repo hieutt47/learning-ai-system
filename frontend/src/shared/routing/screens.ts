@@ -33,6 +33,8 @@ export const SCREENS = {
   // Người 1
   login: { title: 'Đăng nhập', owner: 1, prototype: 'login', access: 'guest', sample: '/login' },
   register: { title: 'Đăng ký', owner: 1, prototype: 'register', access: 'guest', sample: '/register' },
+  forgotPassword: { title: 'Quên mật khẩu', owner: 1, prototype: 'login', access: 'public', sample: '/forgot-password' },
+  resetPassword: { title: 'Đặt lại mật khẩu', owner: 1, prototype: 'login', access: 'public', sample: '/reset-password' },
   profile: { title: 'Hồ sơ', owner: 1, prototype: 'profile', access: 'auth', sample: '/profile' },
   adminUsers: { title: 'Người dùng', owner: 1, prototype: 'admusers', access: 'ADMIN', sample: '/admin/users' },
   adminTeacherRequests: { title: 'Duyệt giảng viên', owner: 1, prototype: 'admreq', access: 'ADMIN', sample: '/admin/teacher-requests' },

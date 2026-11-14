@@ -32,10 +32,16 @@ SMTP local phải chạy ở host/port đã cấu hình; SMTP thật cần đị
 
 Email có bản HTML và plain text; template ở src/main/resources/templates/verification-email.html. Link có hạn 24 giờ, frontend tự gửi POST xác minh khi mở link có token; không tự đăng nhập sau xác minh. Lỗi SMTP trả 503 EMAIL_SEND_FAILED và rollback dữ liệu của thao tác đăng ký/gửi lại.
 
+## Quên mật khẩu
+
+V5 thêm password_reset_tokens. POST /api/v1/auth/forgot-password nhận email, trả 204 chung cho email hợp lệ về định dạng; chỉ tài khoản active đã xác minh được gửi link. Token ngẫu nhiên 32 byte, chỉ lưu hash SHA-256, hạn 30 phút và dùng một lần. Gửi link mới vô hiệu hóa các link cũ; lỗi SMTP trả 503 EMAIL_SEND_FAILED và rollback thao tác. Email dùng cấu hình SMTP hiện có, APP_FRONTEND_BASE_URL và template src/main/resources/templates/password-reset-email.html; link trỏ tới /reset-password?token=... trên frontend.
+
+POST /api/v1/auth/reset-password nhận token và new_password dài 10–72 ký tự, khác mật khẩu hiện tại. Thành công trả 204, lưu hash BCrypt mới, vô hiệu hóa mọi link đặt lại mật khẩu, thu hồi tất cả refresh session của tài khoản và xóa cookie refreshToken; không tự đăng nhập. Hai endpoint không yêu cầu Bearer token; client không gửi Authorization. Access token cũ còn hiệu lực đến exp nếu user active. Đổi mật khẩu khi đang đăng nhập vẫn giữ nguyên các phiên. Frontend tích hợp tại /forgot-password và /reset-password, dùng auth: false. Đặt lại thành công xóa phiên/cache trong trình duyệt, xóa các ô mật khẩu và token khỏi URL rồi hiển thị nút đăng nhập.
+
 ## Kiểm thử
 
 ```bash
 ./mvnw test
 ```
 
-Cấu hình mặc định loại nhóm integration dùng MySQL. Test xác minh email dùng mail sender giả, không gửi email thật. Chỉ chạy integration trên database test riêng.
+Cấu hình mặc định loại nhóm integration dùng MySQL. Test xác minh email và quên mật khẩu dùng mail sender giả, không gửi email thật. Test API quên mật khẩu chạy qua SecurityFilterChain thực với service giả. Chỉ chạy integration trên database test riêng.

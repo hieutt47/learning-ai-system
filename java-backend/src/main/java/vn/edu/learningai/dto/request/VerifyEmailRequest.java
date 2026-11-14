@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class VerifyEmailRequest {
-    @NotBlank
+    @NotBlank(message = "Token must not be blank")
     @Pattern(regexp = "[A-Za-z0-9_-]{43}", message = "Invalid verification token")
     private String token;
 }

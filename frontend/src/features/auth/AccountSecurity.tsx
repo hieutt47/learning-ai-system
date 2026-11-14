@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { Alert, App, Button, Card, Form, Input, Modal } from 'antd'
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { isApiError } from '../../shared/api/client'
 import { changePassword, logoutAll } from '../../shared/auth/session'
 import type { ChangePasswordRequest } from '../../shared/auth/types'
@@ -76,7 +76,7 @@ export function AccountSecurity() {
               }
             }}
           >
-            <Form.Item name="current_password" label="Mật khẩu hiện tại" rules={[
+            <Form.Item name="current_password" label="Mật khẩu hiện tại" extra={<Link to={paths.forgotPassword}>Quên mật khẩu hiện tại?</Link>} rules={[
               { required: true, whitespace: true, message: 'Nhập mật khẩu hiện tại.' },
               { max: 72, message: 'Mật khẩu tối đa 72 ký tự.' },
             ]}>

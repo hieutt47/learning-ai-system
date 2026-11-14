@@ -7,6 +7,8 @@ Mọi route có prefix `/api/v1`. A=ADMIN, T=TEACHER, S=STUDENT, U=user active �
 | AUTH-01 | POST /auth/register | Public | Register → User (201); gửi email xác minh, chưa đăng nhập được; không yêu cầu header Location |
 | AUTH-01 | POST /auth/verify-email | Public | VerifyEmail → 204; xác minh email, không tự đăng nhập |
 | AUTH-01 | POST /auth/resend-verification | Public | ResendVerificationEmail → 204; gửi lại hướng dẫn nếu tài khoản active chưa xác minh |
+| AUTH-01 | POST /auth/forgot-password | Public; không gửi Authorization | ForgotPassword → 204; gửi link đặt lại mật khẩu nếu tài khoản active đã xác minh email; không trả token |
+| AUTH-01 | POST /auth/reset-password | Public; không gửi Authorization | ResetPassword → 204; cập nhật mật khẩu, vô hiệu hóa mọi link đặt lại mật khẩu, thu hồi tất cả refresh session của tài khoản và xóa cookie; không tự đăng nhập |
 | AUTH-01 | POST /auth/login | Public | Login → AuthResponse (200); Set-Cookie: refreshToken |
 | AUTH-01 | POST /auth/refresh | Cookie refreshToken; không gửi Authorization | Không body → AuthResponse (200); Set-Cookie: refreshToken mới |
 | AUTH-01 | POST /auth/logout | Cookie refreshToken nếu có; không gửi Authorization | Không body → 204; xóa cookie; retry 204 |

@@ -6,6 +6,7 @@ Tên bảng/field chính theo `data-dictionary.md`. Đây là sơ đồ thiết 
 erDiagram
   users ||--o{ auth_sessions : has
   users ||--o{ email_verification_tokens : verifies
+  users ||--o{ password_reset_tokens : resets_password
   users ||--o{ teacher_requests : requests
   users ||--o{ courses : owns
   categories ||--o{ courses : groups

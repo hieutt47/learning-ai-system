@@ -11,6 +11,8 @@ import { MyCoursesPage } from '../../features/marketplace/MyCoursesPage'
 import { TeachingCoursesPage } from '../../features/marketplace/TeachingCoursesPage'
 import { createBrowserRouter, type Params, type RouteObject } from 'react-router'
 import { LoginPage } from '../../features/auth/LoginPage'
+import { ForgotPasswordPage } from '../../features/auth/ForgotPasswordPage'
+import { ResetPasswordPage } from '../../features/auth/ResetPasswordPage'
 import { VerifyEmailPage } from '../../features/auth/VerifyEmailPage'
 import { RegisterPage } from '../../features/auth/RegisterPage'
 import { setUnauthorizedHandler } from '../api/client'
@@ -81,7 +83,11 @@ const devRoutes: RouteObject[] = import.meta.env.DEV
 export const router = createBrowserRouter([
   {
     element: <AuthLayout />,
-    children: [{ path: paths.verifyEmail, element: <VerifyEmailPage />, handle: { title: 'Xác minh email' } satisfies RouteHandle }],
+    children: [
+      { path: paths.verifyEmail, element: <VerifyEmailPage />, handle: { title: 'Xác minh email' } satisfies RouteHandle },
+      { path: paths.forgotPassword, element: <ForgotPasswordPage />, handle: { title: 'Quên mật khẩu' } satisfies RouteHandle },
+      { path: paths.resetPassword, element: <ResetPasswordPage />, handle: { title: 'Đặt lại mật khẩu' } satisfies RouteHandle },
+    ],
   },
   {
     element: <GuestOnly />,

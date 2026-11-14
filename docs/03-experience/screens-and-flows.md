@@ -4,14 +4,16 @@ Frontend dùng API chung, chưa chọn framework. Không render trực tiếp en
 
 | Vai trò | Màn hình |
 |---|---|
-| Guest | Marketplace, lọc category/tìm khóa, course detail/outline, register/login |
+| Guest | Marketplace, lọc category/tìm khóa, course detail/outline, register/login, quên mật khẩu/đặt lại mật khẩu |
 | Student | My courses, learning workspace video + documents + quiz/card, quiz attempt, result/review, attempt history, gửi Teacher request |
 | Teacher | Dashboard courses, course editor/thumbnail/publication, lesson editor/transcript/documents, quiz editor/options, AI candidate preview, flashcard review/publish, course/quiz statistics |
 | Admin | Users/search email/lock, Teacher request approvals, category CRUD, system statistics |
 
 Luồng xác minh email: đăng ký → trang xác minh/hướng dẫn kiểm tra hộp thư → mở link email → frontend tự gọi API xác minh → đăng nhập. Mở link có token hiển thị đang xử lý rồi thành công hoặc lỗi; link hết hạn/sai/đã dùng hiển thị lỗi và form gửi lại. Lỗi mạng/máy chủ giữ token và cho thử lại xác minh; thành công xóa token khỏi URL, hiển thị nút Đăng nhập. Login chưa xác minh có nút gửi lại gọi API ngay; thành công mới chuyển sang trang kiểm tra email, thất bại giữ màn đăng nhập và cho thử lại; trang không có token chỉ hướng dẫn kiểm tra email/gửi lại, không gọi API xác minh.
 
-Luồng tài khoản: login/register dùng chung một AuthLayout; nội dung giới thiệu lấy từ bối cảnh sản phẩm trong design-brief.md. User active vào Hồ sơ để sửa họ tên, đổi mật khẩu hoặc đăng xuất tất cả phiên. Đổi mật khẩu nhập mật khẩu hiện tại, mật khẩu mới và xác nhận; lỗi hiện theo field. Đổi mật khẩu thành công giữ nguyên các phiên, xóa các ô mật khẩu và báo thành công tại Hồ sơ. Logout-all thành công xóa phiên/cache và chuyển về đăng nhập. Thất bại giữ form và hiển thị lỗi.
+Luồng quên mật khẩu: đăng nhập → Quên mật khẩu → nhập email → gửi liên kết → mở link email → nhập mật khẩu mới và xác nhận → đặt lại thành công → đăng nhập. Trang quên mật khẩu thông báo chung và có nút Gửi lại email dùng cùng API; gửi lại thành công vô hiệu hóa link cũ. Trang đặt lại mật khẩu chỉ gọi API khi gửi form, không gọi khi mở link; xác nhận mật khẩu chỉ kiểm tra trên giao diện. Thiếu/sai định dạng token hoặc token hết hạn/đã dùng hiển thị lỗi và nút Yêu cầu liên kết mới. Thành công xóa phiên/cache, các ô mật khẩu và token khỏi URL, hiển thị nút Đăng nhập; không tự đăng nhập. Lỗi validation hiện theo field bằng tiếng Việt, lỗi mạng/máy chủ giữ form để thử lại. Cả hai trang dùng AuthLayout hiện có và không bị chuyển đi khi trình duyệt đang đăng nhập.
+
+Luồng tài khoản: login/register dùng chung một AuthLayout; nội dung giới thiệu lấy từ bối cảnh sản phẩm trong design-brief.md. User active vào Hồ sơ để sửa họ tên, đổi mật khẩu hoặc đăng xuất tất cả phiên. Đổi mật khẩu nhập mật khẩu hiện tại, mật khẩu mới và xác nhận; lỗi hiện theo field. Link Quên mật khẩu hiện tại? dưới ô mật khẩu hiện tại dẫn tới trang Quên mật khẩu để yêu cầu gửi email. Đổi mật khẩu thành công giữ nguyên các phiên, xóa các ô mật khẩu và báo thành công tại Hồ sơ. Logout-all thành công xóa phiên/cache và chuyển về đăng nhập. Thất bại giữ form và hiển thị lỗi.
 
 Luồng Student: marketplace → detail → login nếu cần → enroll miễn phí → My courses → lesson → start quiz → submit → score/review → history. Quiz start/submit lỗi mạng cho phép retry theo semantics, không mất kết quả; không hiển thị đáp án trước response submit.
 

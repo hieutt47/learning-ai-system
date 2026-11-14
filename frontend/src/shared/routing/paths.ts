@@ -6,6 +6,8 @@ export const paths = {
   login: '/login',
   register: '/register',
   verifyEmail: '/verify-email',
+  forgotPassword: '/forgot-password',
+  resetPassword: '/reset-password',
   profile: '/profile',
   explore: '/explore',
   courseDetail: (courseId: Id) => `/courses/${courseId}`,

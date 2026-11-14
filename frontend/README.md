@@ -32,6 +32,8 @@ Sao chép `.env.example` thành `.env.local`; đổi file thì dev server tự k
 
 Đăng nhập giữ access token trong bộ nhớ, lấy thông tin tài khoản từ `GET /users/me`. Khi tải lại trang, frontend gọi `POST /auth/refresh` bằng cookie HttpOnly để khôi phục phiên. Request có access token gặp 401 sẽ refresh rồi thử lại một lần; các request đồng thời dùng chung một lần refresh. Login, register, refresh và logout dùng `{ auth: false }`, không gửi Authorization. Đăng ký thành công chuyển về /verify-email để kiểm tra hộp thư. Người dùng mở link có token thì frontend tự gọi API xác minh một lần; thành công hiện nút đăng nhập và xóa token khỏi URL. Link sai/hết hạn/đã dùng có form gửi lại; lỗi mạng/máy chủ giữ token để thử lại. Login chưa xác minh trả EMAIL_NOT_VERIFIED; nút Gửi lại email xác minh gọi POST /auth/resend-verification ngay, thành công mới chuyển sang trang kiểm tra email; thất bại giữ màn đăng nhập để thử lại. Logout chờ khôi phục phiên hoặc refresh đang chạy kết thúc trước khi gửi request; khi nhận 204, xóa access token, thông tin user và cache rồi chuyển về Khám phá. Nếu logout thất bại, hiển thị lỗi để thử lại. Hồ sơ có đổi mật khẩu và đăng xuất tất cả phiên, dùng Bearer access token. Đổi mật khẩu thành công giữ nguyên phiên/cache và trang Hồ sơ, xóa các ô mật khẩu và thông báo thành công; logout-all mới xóa phiên/cache và chuyển về đăng nhập. Login/register dùng GuestOnly bọc một AuthLayout; nội dung giới thiệu trích từ bối cảnh sản phẩm của design-brief.md. Sáu màn của người 1 đã nối API: đăng nhập, đăng ký, hồ sơ, quản lý user, duyệt giảng viên và danh mục.
 
+Quên mật khẩu từ link trên màn đăng nhập dẫn tới /forgot-password. Form email gọi POST /auth/forgot-password với auth: false; thành công thông báo chung và cho gửi lại bằng chính API đó. Mở /reset-password?token=... chỉ hiện form mật khẩu mới/xác nhận, không tự gọi API; thiếu hoặc sai định dạng token thì hiển thị yêu cầu liên kết mới. Gửi form gọi POST /auth/reset-password với token/new_password, không gửi confirm_password hoặc Authorization. Thành công xóa phiên/cache trong trình duyệt, xóa mật khẩu và token khỏi URL, hiển thị nút đăng nhập; token hết hạn/đã dùng dẫn về yêu cầu link mới. Hai trang dùng AuthLayout hiện có và truy cập được cả khi trình duyệt đang có phiên đăng nhập.
+
 ## Cấu trúc
 
 ```text
@@ -101,6 +103,8 @@ Mỗi màn làm theo màn cùng tên trong `prototype.html` (cột Prototype: m�
 | Đăng nhập | `/login` | `#login` | Form email + mật khẩu, bố cục chia đôi như prototype. `POST /auth/login`, lưu token theo thiết kế auth rồi nối `setAccessTokenProvider`; xong quay về `?redirect=`. Lỗi sai mật khẩu, `ACCOUNT_INACTIVE`. |
 | Đăng ký | `/register` | `#register` | Họ tên, email, mật khẩu 10–72 ký tự, xác nhận mật khẩu chỉ dùng ở giao diện. `POST /auth/register`; lỗi `EMAIL_ALREADY_EXISTS` hiện dưới field; thành công chuyển về Xác minh email. |
 | Xác minh email | `/verify-email` | — | Hướng dẫn kiểm tra hộp thư; token trong URL, tự gọi `POST /auth/verify-email` khi mở link, không tự đăng nhập; gửi lại qua `POST /auth/resend-verification`; hiển thị thành công/lỗi và link Đăng nhập. |
+| Quên mật khẩu | `/forgot-password` | `#login` | Form email gọi `POST /auth/forgot-password`; phản hồi chung, gửi lại bằng cùng API, lỗi tiếng Việt; giữ email khi cần thử lại. |
+| Đặt lại mật khẩu | `/reset-password?token=...` | `#login` | Mật khẩu mới 10–72 ký tự và xác nhận; chỉ gọi `POST /auth/reset-password` khi gửi form; thành công xóa phiên/cache/token trên URL rồi hiển thị nút đăng nhập; token lỗi cho yêu cầu liên kết mới. |
 | Hồ sơ | `/profile` | `#profile` | Thông tin cá nhân (`GET/PATCH /users/me`, Hủy/Lưu); tên trên menu cập nhật sau khi lưu. Đổi mật khẩu (`POST /auth/change-password`) giữ nguyên phiên đăng nhập và trang Hồ sơ; Đăng xuất tất cả phiên (`POST /auth/logout-all`) thành công chuyển về Đăng nhập. Sinh viên gửi `POST /teacher-requests`, chặn gửi khi có PENDING. Lịch sử `GET /teacher-requests/me` có phân trang, hiển thị cho cả người đã được duyệt thành Teacher. |
 | Người dùng | `/admin/users` | `#admusers` | Bảng Họ tên / Email / Mã user / Vai trò / Trạng thái / Ngày tạo; phân trang và sắp xếp qua `GET /users`. Khóa / Mở khóa (`PATCH /users/{id}/status`) có modal xác nhận; chặn tự khóa trên giao diện. Tìm theo một phần email qua tham số email, không phân biệt hoa/thường và về trang 1 khi đổi điều kiện; chưa hỗ trợ lọc vai trò/trạng thái. |
 | Duyệt giảng viên | `/admin/teacher-requests` | `#admreq` | Danh sách phân trang, lọc trạng thái và sắp xếp; chọn dòng để xem chi tiết, duyệt/từ chối (giao diện yêu cầu ghi chú khi từ chối). Người gửi hiển thị `user_id` vì response chưa có tên/email; không tìm kiếm theo tên/email. `GET /teacher-requests`, `PATCH /teacher-requests/{id}/decision`; xử lý 404/409 bằng tải lại danh sách. |
@@ -164,6 +168,10 @@ Sidebar, logo, tab trong trang, menu tài khoản, chuyển về `/login?redirec
 | Màn nguồn (người làm) | Nút / thao tác | Dẫn tới | Hàm `paths` |
 |---|---|---|---|
 | Đăng nhập (1) | Link "Đăng ký" | Đăng ký | `paths.register` |
+| Đăng nhập (1) | Link "Quên mật khẩu?" | Quên mật khẩu | `paths.forgotPassword` |
+| Quên mật khẩu (1) | Về trang đăng nhập | Đăng nhập | `paths.login` |
+| Đặt lại mật khẩu (1) | Link không hợp lệ → Yêu cầu liên kết mới | Quên mật khẩu | `paths.forgotPassword` |
+| Đặt lại mật khẩu (1) | Thành công → Đăng nhập | Đăng nhập | `paths.login` |
 | Đăng nhập (1) | Đăng nhập thành công | `?redirect=` nếu có, không thì trang chủ theo vai trò | `homePathFor(role)` |
 | Đăng ký (1) | Link "Đăng nhập" | Đăng nhập | `paths.login` |
 | Đăng ký (1) | Đăng ký thành công | Xác minh email | `paths.verifyEmail` |
@@ -171,6 +179,7 @@ Sidebar, logo, tab trong trang, menu tài khoản, chuyển về `/login?redirec
 | Xác minh email (1) | Về trang đăng nhập | Đăng nhập | `paths.login` |
 | Menu tài khoản (1) | Đăng xuất | Khám phá khóa học | `paths.explore` |
 | Hồ sơ (1) | Đăng xuất tất cả phiên thành công | Đăng nhập | `paths.login` |
+| Hồ sơ (1) | Link "Quên mật khẩu hiện tại?" | Quên mật khẩu | `paths.forgotPassword` |
 | Khám phá (2) | Bấm thẻ khóa học | Chi tiết khóa học | `paths.courseDetail(courseId)` |
 | Chi tiết khóa học (2) | "Ghi danh miễn phí" khi là khách | Đăng nhập, quay lại sau | `` `${paths.login}?redirect=…` `` |
 | Chi tiết khóa học (2) | "Vào học" / ghi danh xong | Học bài, bài đầu tiên | `paths.learnLesson(courseId, lessonId)` |

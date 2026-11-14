@@ -16,6 +16,10 @@ User active đổi mật khẩu bằng current_password và new_password; curren
 
 Admin tìm danh sách user theo một phần email, không phân biệt hoa/thường; trim trước khi tìm, tối đa 254 ký tự. Email thiếu/rỗng/chỉ khoảng trắng không lọc danh sách. Các ký tự %, _ và ! được tìm như ký tự thường; kết quả giữ phân trang và sort whitelist hiện tại.
 
+Quên mật khẩu không yêu cầu đăng nhập, chuẩn hóa email bằng trim/lowercase và trả 204 không body cho email hợp lệ về định dạng, kể cả khi không tồn tại/bị khóa/chưa xác minh. Chỉ user active đã xác minh được gửi link /reset-password?token=... qua SMTP. Token ngẫu nhiên 32 byte, Base64 URL-safe, chỉ lưu SHA-256 trong password_reset_tokens, hạn 30 phút và dùng một lần. Gửi link mới vô hiệu hóa các link đặt lại mật khẩu cũ, chưa thay mật khẩu hoặc phiên đăng nhập; SMTP lỗi trả 503 EMAIL_SEND_FAILED và rollback thao tác, giữ hiệu lực link cũ. Hai thao tác gửi link/đặt lại mật khẩu khóa dòng user trước khi xử lý token để tuần tự hóa yêu cầu cho cùng tài khoản.
+
+Đặt lại mật khẩu xác định user từ token, yêu cầu user còn active và đã xác minh email; mật khẩu mới dài 10–72 ký tự, khác mật khẩu hiện tại và không trim/normalize. Token sai/hết hạn/đã dùng trả 400 INVALID_PASSWORD_RESET_TOKEN; payload hoặc mật khẩu mới không hợp lệ trả 400 VALIDATION_ERROR theo field. Thành công lưu hash BCrypt mới, vô hiệu hóa mọi token đặt lại mật khẩu của user và thu hồi tất cả refresh session trong cùng transaction; trả 204 và xóa cookie refreshToken, không thay role/is_active/email_verified_at hoặc tự đăng nhập. Access token cũ còn hiệu lực đến exp nếu user active. Luồng đổi mật khẩu khi đang đăng nhập vẫn giữ nguyên các phiên như quy tắc hiện tại.
+
 Không gửi `is_correct`, `correct_option_id`, explanation trong response student trước submit.
 
 ## Khóa học và file

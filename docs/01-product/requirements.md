@@ -4,7 +4,7 @@ Nguồn: README gốc. ID nối yêu cầu → API → dữ liệu → tình hu�
 
 | ID | MVP | Điều kiện nghiệm thu |
 |---|---|---|
-| AUTH-01 | Đăng ký, đăng nhập, đổi mật khẩu, đăng xuất | Đăng ký chỉ STUDENT; mật khẩu băm; gửi link xác minh 24 giờ, chỉ email đã xác minh mới login/refresh; gửi lại và xác minh token một lần; đổi mật khẩu xác minh mật khẩu hiện tại, lưu hash mới và giữ nguyên các phiên đăng nhập; logout thu hồi phiên tương ứng, logout-all thu hồi tất cả refresh session và xóa cookie; access token còn hiệu lực đến exp nếu user active |
+| AUTH-01 | Đăng ký, đăng nhập, đổi/đặt lại mật khẩu, đăng xuất | Đăng ký chỉ STUDENT; mật khẩu băm; gửi link xác minh 24 giờ, chỉ email đã xác minh mới login/refresh; gửi lại và xác minh token một lần; đổi mật khẩu xác minh mật khẩu hiện tại, lưu hash mới và giữ nguyên các phiên đăng nhập; API quên mật khẩu gửi link dùng một lần hạn 30 phút cho tài khoản active đã xác minh, phản hồi chung 204; API đặt lại mật khẩu vô hiệu hóa mọi link đặt lại mật khẩu và thu hồi tất cả refresh session; logout thu hồi phiên tương ứng, logout-all thu hồi tất cả refresh session và xóa cookie; access token còn hiệu lực đến exp nếu user active |
 | AUTH-02 | Role và quản lý tài khoản | Kiểm tra ADMIN/TEACHER/STUDENT và trạng thái active; admin tìm user theo email không phân biệt hoa/thường, có phân trang/sắp xếp và khóa/mở khóa tài khoản |
 | USER-01 | Phê duyệt Teacher | Admin quyết định; user không tự cấp quyền |
 | CAT-01 | Danh mục | Admin CRUD; không xóa danh mục đang dùng |

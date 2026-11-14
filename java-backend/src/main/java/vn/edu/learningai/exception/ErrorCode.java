@@ -11,6 +11,7 @@ public enum ErrorCode {
 
     EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN, "Email has not been verified"),
     INVALID_EMAIL_VERIFICATION_TOKEN(HttpStatus.BAD_REQUEST, "Verification link is invalid or expired"),
+    INVALID_PASSWORD_RESET_TOKEN(HttpStatus.BAD_REQUEST, "Password reset link is invalid or expired"),
     EMAIL_SEND_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "Could not send verification email"),
 
     ACCOUNT_INACTIVE(HttpStatus.FORBIDDEN, "Account is inactive"),
