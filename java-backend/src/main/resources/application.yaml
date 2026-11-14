@@ -3,6 +3,17 @@ server:
 spring:
   application:
     name: learningai
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
   datasource:
     url: ${DBMS_CONNECTION}
     username: ${DBMS_USERNAME}
@@ -38,6 +49,7 @@ jwt:
   refresh-ttl: 604800000 # ms - 7 days
 
 app:
+  frontend-base-url: ${APP_FRONTEND_BASE_URL:http://localhost:5173}
   auth:
     cookie:
       secure: ${AUTH_COOKIE_SECURE:true}

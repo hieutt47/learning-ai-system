@@ -11,6 +11,7 @@ import { MyCoursesPage } from '../../features/marketplace/MyCoursesPage'
 import { TeachingCoursesPage } from '../../features/marketplace/TeachingCoursesPage'
 import { createBrowserRouter, type Params, type RouteObject } from 'react-router'
 import { LoginPage } from '../../features/auth/LoginPage'
+import { VerifyEmailPage } from '../../features/auth/VerifyEmailPage'
 import { RegisterPage } from '../../features/auth/RegisterPage'
 import { setUnauthorizedHandler } from '../api/client'
 import { AppLayout } from '../components/AppLayout'
@@ -78,6 +79,10 @@ const devRoutes: RouteObject[] = import.meta.env.DEV
   : []
 
 export const router = createBrowserRouter([
+  {
+    element: <AuthLayout />,
+    children: [{ path: paths.verifyEmail, element: <VerifyEmailPage />, handle: { title: 'Xác minh email' } satisfies RouteHandle }],
+  },
   {
     element: <GuestOnly />,
     errorElement: <RouteErrorPage />,

@@ -1,16 +1,41 @@
-# Backend Java — triển khai trước
+# Backend Java
 
-Stack theo đề tài: Spring Boot, Spring Security/JWT, Hibernate/JPA và MySQL. **Chưa chọn JDK/framework version/build tool; chưa có pom.xml, Gradle, main class, dependency hoặc ứng dụng chạy được.** Chốt theo quy định môn trước bootstrap.
+Spring Boot, Java 17, Maven, Spring Security/JWT, JPA/Hibernate và MySQL. Package chính vn.edu.learningai gồm controller, service, repository, entity, dto, mapper, security và ai.
 
-Package baseline `vn.edu.learningai`; đổi namespace một lần trước viết code nếu nhóm có quy định. Mã tương lai đặt trong `src/main/java/vn/edu/learningai/modules/<module>/`:
+## Chạy local
 
-- `api/`: Controller, request/response DTO, mapping và validation biên.
-- `application/`: Services/use cases, transaction boundary và port interfaces cần thiết.
-- `domain/`: Business rules và domain data không phụ thuộc Spring/JPA.
-- `infrastructure/`: JPA entity/repository adapter, mapper, integration theo module.
+Tạo database MySQL và cấu hình DBMS_CONNECTION, DBMS_USERNAME, DBMS_PASSWORD, JWT_SIGNING_KEY theo .env.example. JWT_SIGNING_KEY là Base64 của khóa ngẫu nhiên tối thiểu 32 byte. Chạy HTTP local đặt AUTH_COOKIE_SECURE=false.
 
-Không cần domain entity và ORM entity trùng nhau mọi field nếu chỉ làm mô hình đơn giản; domain giữ quy tắc có giá trị, persistence giữ mapping DB. Services không trả ORM entity ra API.
+Backend đọc biến môi trường của tiến trình, không tự nạp .env. Khai báo trong Run Configuration của IntelliJ rồi chạy LearningaiApplication, hoặc nạp biến môi trường trước khi chạy Maven:
 
-`shared/`: config, security, errors và tiện ích dùng chung tối thiểu; `src/main/resources/` dành cấu hình không chứa secret. Migration chỉ trong `database/migrations/`, không tự sao một bộ SQL khác vào backend. `src/test/java/vn/edu/learningai/` cho kiểm tra code; scenarios trong tests/shared dùng chung.
+```bash
+./mvnw spring-boot:run
+```
 
-Sau chốt toolchain: tạo build/main/config → validate DB schema → error conventions → security/session → module theo backlog. Framework annotation đặt ở adapter/application khi cần, không kéo vào domain. Lệnh build/run được bổ sung sau khi có project thật, chưa ghi lệnh giả chạy được.
+Port mặc định 8080. Flyway lấy migration từ database/migrations qua Maven resources; Hibernate dùng ddl-auto=validate. Seed demo trong database/seeds chạy sau migration.
+
+## Xác minh email
+
+V4 thêm users.email_verified_at và email_verification_tokens. User đã tồn tại trước migration được đánh dấu đã xác minh; đăng ký mới cần mở link email và xác nhận trước khi đăng nhập. Seed demo có email_verified_at.
+
+| Biến | Giá trị local mặc định | Ý nghĩa |
+|---|---|---|
+| MAIL_HOST | localhost | Máy chủ SMTP |
+| MAIL_PORT | 1025 | Port SMTP |
+| MAIL_USERNAME / MAIL_PASSWORD | rỗng | Tài khoản SMTP nếu cần |
+| MAIL_SMTP_AUTH | false | Bật xác thực SMTP |
+| MAIL_STARTTLS | false | Bật STARTTLS theo máy chủ |
+| MAIL_FROM | learningai@example.test | Địa chỉ gửi email |
+| APP_FRONTEND_BASE_URL | http://localhost:5173 | Gốc URL frontend trong link xác minh |
+
+SMTP local phải chạy ở host/port đã cấu hình; SMTP thật cần địa chỉ gửi và thông tin xác thực hợp lệ. APP_FRONTEND_BASE_URL phải trùng địa chỉ frontend mà người nhận mở được, kể cả khi Vite đổi port.
+
+Email có bản HTML và plain text; template ở src/main/resources/templates/verification-email.html. Link có hạn 24 giờ, frontend tự gửi POST xác minh khi mở link có token; không tự đăng nhập sau xác minh. Lỗi SMTP trả 503 EMAIL_SEND_FAILED và rollback dữ liệu của thao tác đăng ký/gửi lại.
+
+## Kiểm thử
+
+```bash
+./mvnw test
+```
+
+Cấu hình mặc định loại nhóm integration dùng MySQL. Test xác minh email dùng mail sender giả, không gửi email thật. Chỉ chạy integration trên database test riêng.

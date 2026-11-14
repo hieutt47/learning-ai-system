@@ -19,7 +19,7 @@ h1,h2,h3{text-wrap:balance}
 .shell{min-height:100vh;display:flex;flex-wrap:wrap}
 .sb{flex:0 0 248px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px 12px;gap:20px;position:sticky;top:0;height:100vh;overflow-y:auto}
 .logo{display:flex;align-items:center;gap:10px;padding:4px 4px 4px 8px;text-decoration:none}
-.logo-mk{width:32px;height:32px;border-radius:8px;background:var(--primary);color:var(--on-primary);display:grid;place-items:center;flex:none}
+.logo-mk{width:32px;height:32px;border-radius:8px;background:var(--primary);color:var(--on-hero);display:grid;place-items:center;flex:none}
 .logo b{font-size:16px;font-weight:700;color:var(--text);flex:1}
 .nav-g{display:flex;flex-direction:column;gap:2px}
 .nav-h{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);padding:0 12px 6px}

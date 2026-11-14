@@ -30,7 +30,7 @@ Sao chép `.env.example` thành `.env.local`; đổi file thì dev server tự k
 
 **Trang dev `/dev/screens`** (link "Danh sách màn hình" cuối sidebar, chỉ có khi `npm run dev`): mở nhanh mọi màn và xem quyền truy cập. Vai trò lấy từ tài khoản đăng nhập thật, không dùng `VITE_DEV_*` hoặc header `X-User-Id`.
 
-Đăng nhập giữ access token trong bộ nhớ, lấy thông tin tài khoản từ `GET /users/me`. Khi tải lại trang, frontend gọi `POST /auth/refresh` bằng cookie HttpOnly để khôi phục phiên. Request có access token gặp 401 sẽ refresh rồi thử lại một lần; các request đồng thời dùng chung một lần refresh. Login, register, refresh và logout dùng `{ auth: false }`, không gửi Authorization. Đăng ký thành công chuyển về đăng nhập. Logout chờ khôi phục phiên hoặc refresh đang chạy kết thúc trước khi gửi request; khi nhận 204, xóa access token, thông tin user và cache rồi chuyển về Khám phá. Nếu logout thất bại, hiển thị lỗi để thử lại. Hồ sơ có đổi mật khẩu và đăng xuất tất cả phiên, dùng Bearer access token; thành công xóa phiên/cache và chuyển về đăng nhập. Login/register dùng GuestOnly bọc một AuthLayout; nội dung giới thiệu trích từ bối cảnh sản phẩm của design-brief.md. Sáu màn của người 1 đã nối API: đăng nhập, đăng ký, hồ sơ, quản lý user, duyệt giảng viên và danh mục.
+Đăng nhập giữ access token trong bộ nhớ, lấy thông tin tài khoản từ `GET /users/me`. Khi tải lại trang, frontend gọi `POST /auth/refresh` bằng cookie HttpOnly để khôi phục phiên. Request có access token gặp 401 sẽ refresh rồi thử lại một lần; các request đồng thời dùng chung một lần refresh. Login, register, refresh và logout dùng `{ auth: false }`, không gửi Authorization. Đăng ký thành công chuyển về /verify-email để kiểm tra hộp thư. Người dùng mở link có token thì frontend tự gọi API xác minh một lần; thành công hiện nút đăng nhập và xóa token khỏi URL. Link sai/hết hạn/đã dùng có form gửi lại; lỗi mạng/máy chủ giữ token để thử lại. Login chưa xác minh trả EMAIL_NOT_VERIFIED; nút Gửi lại email xác minh gọi POST /auth/resend-verification ngay, thành công mới chuyển sang trang kiểm tra email; thất bại giữ màn đăng nhập để thử lại. Logout chờ khôi phục phiên hoặc refresh đang chạy kết thúc trước khi gửi request; khi nhận 204, xóa access token, thông tin user và cache rồi chuyển về Khám phá. Nếu logout thất bại, hiển thị lỗi để thử lại. Hồ sơ có đổi mật khẩu và đăng xuất tất cả phiên, dùng Bearer access token. Đổi mật khẩu thành công giữ nguyên phiên/cache và trang Hồ sơ, xóa các ô mật khẩu và thông báo thành công; logout-all mới xóa phiên/cache và chuyển về đăng nhập. Login/register dùng GuestOnly bọc một AuthLayout; nội dung giới thiệu trích từ bối cảnh sản phẩm của design-brief.md. Sáu màn của người 1 đã nối API: đăng nhập, đăng ký, hồ sơ, quản lý user, duyệt giảng viên và danh mục.
 
 ## Cấu trúc
 
@@ -99,8 +99,9 @@ Mỗi màn làm theo màn cùng tên trong `prototype.html` (cột Prototype: m�
 | Màn | Route | Prototype | Việc cần làm |
 |---|---|---|---|
 | Đăng nhập | `/login` | `#login` | Form email + mật khẩu, bố cục chia đôi như prototype. `POST /auth/login`, lưu token theo thiết kế auth rồi nối `setAccessTokenProvider`; xong quay về `?redirect=`. Lỗi sai mật khẩu, `ACCOUNT_INACTIVE`. |
-| Đăng ký | `/register` | `#register` | Họ tên, email, mật khẩu 10–72 ký tự, xác nhận mật khẩu chỉ dùng ở giao diện. `POST /auth/register`; lỗi `EMAIL_ALREADY_EXISTS` hiện dưới field; thành công chuyển về Đăng nhập. |
-| Hồ sơ | `/profile` | `#profile` | Thông tin cá nhân (`GET/PATCH /users/me`, Hủy/Lưu); tên trên menu cập nhật sau khi lưu. Đổi mật khẩu (`POST /auth/change-password`) và Đăng xuất tất cả phiên (`POST /auth/logout-all`); thành công chuyển về Đăng nhập. Sinh viên gửi `POST /teacher-requests`, chặn gửi khi có PENDING. Lịch sử `GET /teacher-requests/me` có phân trang, hiển thị cho cả người đã được duyệt thành Teacher. |
+| Đăng ký | `/register` | `#register` | Họ tên, email, mật khẩu 10–72 ký tự, xác nhận mật khẩu chỉ dùng ở giao diện. `POST /auth/register`; lỗi `EMAIL_ALREADY_EXISTS` hiện dưới field; thành công chuyển về Xác minh email. |
+| Xác minh email | `/verify-email` | — | Hướng dẫn kiểm tra hộp thư; token trong URL, tự gọi `POST /auth/verify-email` khi mở link, không tự đăng nhập; gửi lại qua `POST /auth/resend-verification`; hiển thị thành công/lỗi và link Đăng nhập. |
+| Hồ sơ | `/profile` | `#profile` | Thông tin cá nhân (`GET/PATCH /users/me`, Hủy/Lưu); tên trên menu cập nhật sau khi lưu. Đổi mật khẩu (`POST /auth/change-password`) giữ nguyên phiên đăng nhập và trang Hồ sơ; Đăng xuất tất cả phiên (`POST /auth/logout-all`) thành công chuyển về Đăng nhập. Sinh viên gửi `POST /teacher-requests`, chặn gửi khi có PENDING. Lịch sử `GET /teacher-requests/me` có phân trang, hiển thị cho cả người đã được duyệt thành Teacher. |
 | Người dùng | `/admin/users` | `#admusers` | Bảng Họ tên / Email / Mã user / Vai trò / Trạng thái / Ngày tạo; phân trang và sắp xếp qua `GET /users`. Khóa / Mở khóa (`PATCH /users/{id}/status`) có modal xác nhận; chặn tự khóa trên giao diện. Tìm theo một phần email qua tham số email, không phân biệt hoa/thường và về trang 1 khi đổi điều kiện; chưa hỗ trợ lọc vai trò/trạng thái. |
 | Duyệt giảng viên | `/admin/teacher-requests` | `#admreq` | Danh sách phân trang, lọc trạng thái và sắp xếp; chọn dòng để xem chi tiết, duyệt/từ chối (giao diện yêu cầu ghi chú khi từ chối). Người gửi hiển thị `user_id` vì response chưa có tên/email; không tìm kiếm theo tên/email. `GET /teacher-requests`, `PATCH /teacher-requests/{id}/decision`; xử lý 404/409 bằng tải lại danh sách. |
 | Danh mục | `/admin/categories` | `#admcat` | Bảng Mã / Tên / Mô tả, phân trang và sắp xếp; modal Thêm/Sửa; mô tả rỗng gửi chuỗi rỗng, không xóa bằng null. Xóa có xác nhận; `RESOURCE_IN_USE` → modal "Không thể xóa danh mục". Response chưa có số khóa học sử dụng và API chưa hỗ trợ tìm kiếm tên. `GET/POST/PATCH/DELETE /categories`. |
@@ -164,9 +165,12 @@ Sidebar, logo, tab trong trang, menu tài khoản, chuyển về `/login?redirec
 |---|---|---|---|
 | Đăng nhập (1) | Link "Đăng ký" | Đăng ký | `paths.register` |
 | Đăng nhập (1) | Đăng nhập thành công | `?redirect=` nếu có, không thì trang chủ theo vai trò | `homePathFor(role)` |
-| Đăng ký (1) | Link "Đăng nhập"; đăng ký thành công | Đăng nhập | `paths.login` |
+| Đăng ký (1) | Link "Đăng nhập" | Đăng nhập | `paths.login` |
+| Đăng ký (1) | Đăng ký thành công | Xác minh email | `paths.verifyEmail` |
+| Đăng nhập (1) | Gửi lại email xác minh thành công | Xác minh email | `paths.verifyEmail` |
+| Xác minh email (1) | Về trang đăng nhập | Đăng nhập | `paths.login` |
 | Menu tài khoản (1) | Đăng xuất | Khám phá khóa học | `paths.explore` |
-| Hồ sơ (1) | Đổi mật khẩu hoặc Đăng xuất tất cả phiên thành công | Đăng nhập | `paths.login` |
+| Hồ sơ (1) | Đăng xuất tất cả phiên thành công | Đăng nhập | `paths.login` |
 | Khám phá (2) | Bấm thẻ khóa học | Chi tiết khóa học | `paths.courseDetail(courseId)` |
 | Chi tiết khóa học (2) | "Ghi danh miễn phí" khi là khách | Đăng nhập, quay lại sau | `` `${paths.login}?redirect=…` `` |
 | Chi tiết khóa học (2) | "Vào học" / ghi danh xong | Học bài, bài đầu tiên | `paths.learnLesson(courseId, lessonId)` |

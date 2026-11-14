@@ -13,18 +13,34 @@ import vn.edu.learningai.dto.response.AuthResponse;
 import vn.edu.learningai.dto.response.UserResponse;
 import vn.edu.learningai.security.service.RefreshTokenCookieService;
 import vn.edu.learningai.service.AuthService;
+import vn.edu.learningai.service.EmailVerificationService;
+import vn.edu.learningai.dto.request.VerifyEmailRequest;
+import vn.edu.learningai.dto.request.ResendVerificationEmailRequest;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("api/v1/auth")
 public class AuthController {
     private final AuthService authService;
+    private final EmailVerificationService emailVerificationService;
     private final RefreshTokenCookieService refreshTokenCookieService;
 
     @PostMapping("/register")
     public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(authService.register(request));
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<Void> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
+        emailVerificationService.verifyEmail(request.getToken());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<Void> resendVerification(@Valid @RequestBody ResendVerificationEmailRequest request) {
+        emailVerificationService.resendVerificationEmail(request.getEmail());
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/login")
@@ -54,9 +70,7 @@ public class AuthController {
     @PostMapping("/change-password")
     public ResponseEntity<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
         authService.changePassword(request);
-        return ResponseEntity.noContent()
-            .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.clear().toString())
-            .build();
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/logout-all")

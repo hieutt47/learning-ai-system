@@ -9,7 +9,9 @@ Frontend dùng API chung, chưa chọn framework. Không render trực tiếp en
 | Teacher | Dashboard courses, course editor/thumbnail/publication, lesson editor/transcript/documents, quiz editor/options, AI candidate preview, flashcard review/publish, course/quiz statistics |
 | Admin | Users/search email/lock, Teacher request approvals, category CRUD, system statistics |
 
-Luồng tài khoản: login/register dùng chung một AuthLayout; nội dung giới thiệu lấy từ bối cảnh sản phẩm trong design-brief.md. User active vào Hồ sơ để sửa họ tên, đổi mật khẩu hoặc đăng xuất tất cả phiên. Đổi mật khẩu nhập mật khẩu hiện tại, mật khẩu mới và xác nhận; lỗi hiện theo field. Đổi mật khẩu/logout-all thành công xóa phiên/cache và chuyển về đăng nhập; thất bại giữ form và hiển thị lỗi.
+Luồng xác minh email: đăng ký → trang xác minh/hướng dẫn kiểm tra hộp thư → mở link email → frontend tự gọi API xác minh → đăng nhập. Mở link có token hiển thị đang xử lý rồi thành công hoặc lỗi; link hết hạn/sai/đã dùng hiển thị lỗi và form gửi lại. Lỗi mạng/máy chủ giữ token và cho thử lại xác minh; thành công xóa token khỏi URL, hiển thị nút Đăng nhập. Login chưa xác minh có nút gửi lại gọi API ngay; thành công mới chuyển sang trang kiểm tra email, thất bại giữ màn đăng nhập và cho thử lại; trang không có token chỉ hướng dẫn kiểm tra email/gửi lại, không gọi API xác minh.
+
+Luồng tài khoản: login/register dùng chung một AuthLayout; nội dung giới thiệu lấy từ bối cảnh sản phẩm trong design-brief.md. User active vào Hồ sơ để sửa họ tên, đổi mật khẩu hoặc đăng xuất tất cả phiên. Đổi mật khẩu nhập mật khẩu hiện tại, mật khẩu mới và xác nhận; lỗi hiện theo field. Đổi mật khẩu thành công giữ nguyên các phiên, xóa các ô mật khẩu và báo thành công tại Hồ sơ. Logout-all thành công xóa phiên/cache và chuyển về đăng nhập. Thất bại giữ form và hiển thị lỗi.
 
 Luồng Student: marketplace → detail → login nếu cần → enroll miễn phí → My courses → lesson → start quiz → submit → score/review → history. Quiz start/submit lỗi mạng cho phép retry theo semantics, không mất kết quả; không hiển thị đáp án trước response submit.
 

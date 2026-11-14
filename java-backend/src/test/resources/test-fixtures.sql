@@ -43,3 +43,5 @@ INSERT INTO lessons (id, course_id, title, video_url, transcript_text, order_ind
 INSERT INTO course_members (course_id, student_id) VALUES
     (2, 4),
     (4, 4);
+
+UPDATE users SET email_verified_at = UTC_TIMESTAMP(6);

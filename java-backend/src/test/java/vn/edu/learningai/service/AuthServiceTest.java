@@ -1,5 +1,10 @@
 package vn.edu.learningai.service;
 
+import java.time.Instant;
+import vn.edu.learningai.dto.request.LoginRequest;
+import vn.edu.learningai.security.custom.CustomUserDetails;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import static org.mockito.ArgumentMatchers.any;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +39,8 @@ class AuthServiceTest {
     @Mock private UserRepository userRepository;
     @Mock(mockMaker = MockMakers.SUBCLASS) private SecurityHelper securityHelper;
 
+    @Mock(mockMaker = MockMakers.SUBCLASS) private EmailVerificationService emailVerificationService;
+
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(4);
     private AuthService service;
     private User user;
@@ -41,12 +48,12 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         service = new AuthService(authenticationManager, jwtService, refreshTokenService,
-            userMapper, passwordEncoder, userRepository, securityHelper);
+            userMapper, passwordEncoder, userRepository, securityHelper, emailVerificationService);
         user = User.builder().id(7L).passwordHash(passwordEncoder.encode("CurrentPass123!")).build();
     }
 
     @Test
-    void passwordChangeHashesNewPasswordAndRevokesEveryRefreshSession() {
+    void passwordChangeHashesNewPasswordAndPreservesRefreshSessions() {
         when(securityHelper.getCurrentUser()).thenReturn(user);
 
         service.changePassword(new ChangePasswordRequest("CurrentPass123!", "NewPassword123!"));
@@ -54,7 +61,7 @@ class AuthServiceTest {
         assertThat(passwordEncoder.matches("NewPassword123!", user.getPasswordHash())).isTrue();
         assertThat(passwordEncoder.matches("CurrentPass123!", user.getPasswordHash())).isFalse();
         verify(userRepository).save(user);
-        verify(refreshTokenService).revokeAllForUser(7L);
+        verifyNoInteractions(refreshTokenService);
     }
 
     @Test
@@ -102,5 +109,31 @@ class AuthServiceTest {
         assertThatThrownBy(() -> service.logoutAll()).isInstanceOf(ApiException.class);
 
         verifyNoInteractions(refreshTokenService);
+    }
+    @Test
+    void unverifiedEmailCannotLoginOrCreateRefreshSession() {
+        CustomUserDetails details =
+            CustomUserDetails.build(user);
+        when(authenticationManager.authenticate(any()))
+            .thenReturn(new UsernamePasswordAuthenticationToken(details, null, details.getAuthorities()));
+        LoginRequest request = new LoginRequest("student@example.test", "CurrentPass123!");
+        assertThatThrownBy(() -> service.login(request)).isInstanceOfSatisfying(ApiException.class,
+            error -> assertThat(error.getErrorCode()).isEqualTo(ErrorCode.EMAIL_NOT_VERIFIED));
+        verifyNoInteractions(jwtService, refreshTokenService);
+    }
+    @Test
+    void verifiedEmailCanLoginAndReceiveTokens() {
+        user.setEmailVerifiedAt(Instant.now());
+        CustomUserDetails details =
+            CustomUserDetails.build(user);
+        when(authenticationManager.authenticate(any()))
+            .thenReturn(new UsernamePasswordAuthenticationToken(details, null, details.getAuthorities()));
+        when(jwtService.generateToken(details)).thenReturn("access");
+        when(refreshTokenService.createRefreshToken(user.getId())).thenReturn(
+            RefreshTokenService.RefreshTokenResult.builder().refreshToken("refresh").build());
+        AuthService.AuthTokenResult result = service.login(
+            new LoginRequest("student@example.test", "CurrentPass123!"));
+        assertThat(result.getAccessToken()).isEqualTo("access");
+        assertThat(result.getRefreshToken()).isEqualTo("refresh");
     }
 }

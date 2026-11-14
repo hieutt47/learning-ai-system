@@ -151,7 +151,7 @@ async function sendRequest<T>(method: string, path: string, options: RequestOpti
             await refreshTokenHandler()
           }
         } catch (error) {
-          if (isApiError(error) && (error.status === 401 || error.code === 'ACCOUNT_INACTIVE')) {
+          if (isApiError(error) && (error.status === 401 || error.code === 'ACCOUNT_INACTIVE' || error.code === 'EMAIL_NOT_VERIFIED')) {
             expireSession()
           }
           throw error
@@ -160,7 +160,7 @@ async function sendRequest<T>(method: string, path: string, options: RequestOpti
         return sendRequest<T>(method, path, options, true)
       }
       expireSession()
-    } else if (token && apiError.code === 'ACCOUNT_INACTIVE') {
+    } else if (token && (apiError.code === 'ACCOUNT_INACTIVE' || apiError.code === 'EMAIL_NOT_VERIFIED')) {
       expireSession()
     }
     throw apiError
@@ -208,7 +208,7 @@ export async function apiGetBlob(path: string, options: Omit<RequestOptions, 'bo
             await refreshTokenHandler()
           }
         } catch (error) {
-          if (isApiError(error) && (error.status === 401 || error.code === 'ACCOUNT_INACTIVE')) {
+          if (isApiError(error) && (error.status === 401 || error.code === 'ACCOUNT_INACTIVE' || error.code === 'EMAIL_NOT_VERIFIED')) {
             expireSession()
           }
           throw error
@@ -217,7 +217,7 @@ export async function apiGetBlob(path: string, options: Omit<RequestOptions, 'bo
         return apiGetBlob(path, options, true)
       }
       expireSession()
-    } else if (token && apiError.code === 'ACCOUNT_INACTIVE') {
+    } else if (token && (apiError.code === 'ACCOUNT_INACTIVE' || apiError.code === 'EMAIL_NOT_VERIFIED')) {
       expireSession()
     }
     throw apiError

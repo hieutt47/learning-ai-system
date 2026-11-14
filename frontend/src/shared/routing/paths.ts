@@ -5,6 +5,7 @@ export const paths = {
   home: '/',
   login: '/login',
   register: '/register',
+  verifyEmail: '/verify-email',
   profile: '/profile',
   explore: '/explore',
   courseDetail: (courseId: Id) => `/courses/${courseId}`,

@@ -16,6 +16,7 @@ public class CustomUserDetails implements UserDetails {
     private String passwordHash;
     private Collection<? extends GrantedAuthority> authorities;
     private Boolean isActive;
+    private boolean emailVerified;
 
     private CustomUserDetails(
         Long id,
@@ -36,13 +37,15 @@ public class CustomUserDetails implements UserDetails {
         List<GrantedAuthority> authorities =
             List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
 
-        return new CustomUserDetails(
+        CustomUserDetails details = new CustomUserDetails(
             user.getId(),
             user.getFullName(),
             user.getEmail(),
             user.getPasswordHash(),
             authorities,
             user.getIsActive());
+        details.emailVerified = user.getEmailVerifiedAt() != null;
+        return details;
     }
 
     @Override
@@ -86,6 +89,10 @@ public class CustomUserDetails implements UserDetails {
     @Override
     public boolean isEnabled() {
         return isActive;
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerified;
     }
 
     public UserRole getRole() {

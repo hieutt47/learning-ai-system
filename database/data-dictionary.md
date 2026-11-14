@@ -4,7 +4,8 @@ DB MySQL 8 (InnoDB, utf8mb4). PK BIGINT AUTO_INCREMENT; wire ID string. Thời g
 
 | Bảng | Field |
 |---|---|
-| users | id PK, full_name VARCHAR(120), email VARCHAR(254) UNIQUE normalized, password_hash VARCHAR(255), role VARCHAR CHECK ADMIN/TEACHER/STUDENT, is_active BOOLEAN, created_at, updated_at |
+| users | id PK, full_name VARCHAR(120), email VARCHAR(254) UNIQUE normalized, password_hash VARCHAR(255), role VARCHAR CHECK ADMIN/TEACHER/STUDENT, is_active BOOLEAN, email_verified_at? DATETIME(6), created_at, updated_at |
+| email_verification_tokens | id PK, user_id FK users, token_hash VARCHAR(64) UNIQUE, expires_at DATETIME(6), used_at? DATETIME(6) |
 | auth_sessions | id PK, user_id FK users, refresh_token_hash VARCHAR(255) UNIQUE, expires_at, revoked_at?, created_at, updated_at |
 | teacher_requests | id PK, user_id FK users, reason TEXT, status CHECK PENDING/APPROVED/REJECTED, decided_by? FK users, decision_note? TEXT, decided_at?, created_at |
 | categories | id PK, name VARCHAR(120) UNIQUE, description? TEXT, created_at, updated_at |

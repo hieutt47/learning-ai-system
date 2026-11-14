@@ -11,6 +11,15 @@ interface PasswordFormValues extends ChangePasswordRequest {
   confirm_password: string
 }
 
+const PASSWORD_MESSAGES: Record<string, string> = {
+  'Current password is incorrect': 'Mật khẩu hiện tại không đúng.',
+  'Current password must not be blank': 'Nhập mật khẩu hiện tại.',
+  'Current password must not exceed 72 characters': 'Mật khẩu hiện tại tối đa 72 ký tự.',
+  'New password must not be blank': 'Nhập mật khẩu mới.',
+  'New password must contain between 10 and 72 characters': 'Mật khẩu mới cần từ 10 đến 72 ký tự.',
+  'New password must differ from current password': 'Mật khẩu mới phải khác mật khẩu hiện tại.',
+}
+
 export function AccountSecurity() {
   const [form] = Form.useForm<PasswordFormValues>()
   const [confirmLogout, setConfirmLogout] = useState(false)
@@ -20,15 +29,16 @@ export function AccountSecurity() {
     mutationFn: changePassword,
     onSuccess: () => {
       form.resetFields()
-      void message.success('Đã đổi mật khẩu. Vui lòng đăng nhập lại.')
-      void navigate(paths.login, { replace: true })
+      void message.success('Đã đổi mật khẩu')
     },
     onError: (error) => {
       if (isApiError(error)) {
         const errors = error.fieldErrors()
         for (const name of ['current_password', 'new_password'] as const) {
           if (errors[name]) {
-            form.setFields([{ name, errors: [errors[name]] }])
+            const text = PASSWORD_MESSAGES[errors[name]]
+              ?? (name === 'current_password' ? 'Mật khẩu hiện tại không hợp lệ.' : 'Mật khẩu mới không hợp lệ.')
+            form.setFields([{ name, errors: [text] }])
           }
         }
       }
@@ -49,9 +59,9 @@ export function AccountSecurity() {
     <>
       <Card title="Đổi mật khẩu">
         <div className="account-stack">
-          <p className="account-description">Đổi mật khẩu thành công sẽ thu hồi các phiên đăng nhập và yêu cầu bạn đăng nhập lại.</p>
+          <p className="account-description">Đổi mật khẩu bằng cách nhập mật khẩu hiện tại và mật khẩu mới. Các phiên đăng nhập được giữ nguyên.</p>
           {passwordMutation.error && !passwordFieldError ? (
-            <Alert type="error" showIcon title={passwordMutation.error.message} />
+            <Alert type="error" showIcon title="Không thể đổi mật khẩu. Vui lòng thử lại." />
           ) : null}
           <Form<PasswordFormValues>
             form={form}

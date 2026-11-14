@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { Alert, App, Button, Form, Input } from 'antd'
-import { Link } from 'react-router'
-import { isApiError } from '../../shared/api/client'
+import { Link, useNavigate } from 'react-router'
+import { apiPost, isApiError } from '../../shared/api/client'
 import { useCurrentUser } from '../../shared/auth/currentUser'
 import { login, restoreSession } from '../../shared/auth/session'
 import type { LoginRequest } from '../../shared/auth/types'
@@ -10,6 +10,9 @@ import { paths } from '../../shared/routing/paths'
 
 function loginError(error: unknown): string {
   if (isApiError(error)) {
+    if (error.code === 'EMAIL_NOT_VERIFIED') {
+      return 'Bạn cần xác minh email trước khi đăng nhập.'
+    }
     if (error.code === 'ACCOUNT_INACTIVE') {
       return 'Tài khoản của bạn đã bị khóa. Liên hệ quản trị viên để được mở lại.'
     }
@@ -27,6 +30,7 @@ function loginError(error: unknown): string {
 export function LoginPage() {
   const [form] = Form.useForm<LoginRequest>()
   const { message } = App.useApp()
+  const navigate = useNavigate()
   const { error: sessionError } = useCurrentUser()
 
   const mutation = useMutation({
@@ -44,8 +48,17 @@ export function LoginPage() {
     },
   })
 
+  const resend = useMutation({
+    mutationFn: (email: string) => apiPost<void>('/auth/resend-verification', { email }, { auth: false }),
+    onSuccess: (_, email) => {
+      void message.success('Nếu tài khoản cần xác minh, email hướng dẫn đã được gửi.')
+      void navigate(`${paths.verifyEmail}?email=${encodeURIComponent(email)}`)
+    },
+  })
+  const pending = mutation.isPending || resend.isPending
+
   function submit(values: LoginRequest): void {
-    if (!mutation.isPending) {
+    if (!pending) {
       mutation.mutate({ email: values.email.trim(), password: values.password })
     }
   }
@@ -65,14 +78,30 @@ export function LoginPage() {
         />
       ) : null}
       {mutation.error ? <Alert type="error" showIcon title={loginError(mutation.error)} /> : null}
+      {isApiError(mutation.error) && mutation.error.code === 'EMAIL_NOT_VERIFIED' ? (
+        <>
+          {resend.error ? <Alert type="error" showIcon title={isApiError(resend.error) && resend.error.code === 'EMAIL_SEND_FAILED'
+            ? 'Chưa thể gửi email xác minh. Vui lòng thử lại.' : resend.error.message} /> : null}
+          <Button
+            type="link"
+            loading={resend.isPending}
+            disabled={pending}
+            aria-label="Gửi lại email xác minh"
+            aria-busy={resend.isPending}
+            onClick={() => {
+              if (!pending && mutation.variables) resend.mutate(mutation.variables.email)
+            }}
+          >Gửi lại email xác minh</Button>
+        </>
+      ) : null}
       <Form<LoginRequest>
         form={form}
         name="login"
         layout="vertical"
         requiredMark={false}
         onFinish={submit}
-        onValuesChange={() => mutation.reset()}
-        disabled={mutation.isPending}
+        onValuesChange={() => { mutation.reset(); resend.reset() }}
+        disabled={pending}
       >
         <Form.Item
           name="email"

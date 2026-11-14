@@ -36,9 +36,9 @@ export function RegisterPage() {
   const { message } = App.useApp()
   const mutation = useMutation({
     mutationFn: (request: RegisterRequest) => apiPost<User>('/auth/register', request, { auth: false }),
-    onSuccess: () => {
-      void message.success('Tạo tài khoản thành công. Vui lòng đăng nhập.')
-      void navigate(paths.login, { replace: true })
+    onSuccess: (user) => {
+      void message.success('Tạo tài khoản thành công. Vui lòng kiểm tra email.')
+      void navigate(`${paths.verifyEmail}?email=${encodeURIComponent(user.email)}`, { replace: true })
     },
     onError: (error) => {
       if (isApiError(error)) {

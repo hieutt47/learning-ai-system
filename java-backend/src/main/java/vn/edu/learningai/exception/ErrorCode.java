@@ -9,6 +9,10 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "Invalid data"),
 
+    EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN, "Email has not been verified"),
+    INVALID_EMAIL_VERIFICATION_TOKEN(HttpStatus.BAD_REQUEST, "Verification link is invalid or expired"),
+    EMAIL_SEND_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "Could not send verification email"),
+
     ACCOUNT_INACTIVE(HttpStatus.FORBIDDEN, "Account is inactive"),
 
     UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "Authentication required or credentials are invalid"),

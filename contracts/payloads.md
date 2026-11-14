@@ -5,10 +5,12 @@ Field dưới đây là thiết kế; khi viết OpenAPI phải khai báo requir
 | Group | Request | Response chính |
 |---|---|---|
 | Register | full_name, email, password | User: id, full_name, email, role, is_active, created_at |
+| VerifyEmail | token bắt buộc, 43 ký tự Base64 URL-safe | 204; không body/token đăng nhập |
+| ResendVerificationEmail | email bắt buộc, đúng định dạng, tối đa 254 ký tự | 204; cùng phản hồi cho email không tồn tại, đã xác minh hoặc tài khoản bị khóa |
 | Login | email, password | AuthResponse: access_token; Set-Cookie: refreshToken |
 | Refresh | Cookie: refreshToken; không body; không gửi header Authorization | AuthResponse: access_token; Set-Cookie: refreshToken mới |
 | Logout | Cookie: refreshToken nếu có; không body; không gửi header Authorization | 204, không body; Set-Cookie xóa refreshToken |
-| ChangePassword | Bearer access token; current_password bắt buộc, tối đa 72 ký tự; new_password bắt buộc, 10–72 ký tự và khác mật khẩu hiện tại | 204, không body; thu hồi tất cả refresh session; Set-Cookie xóa refreshToken |
+| ChangePassword | Bearer access token; current_password bắt buộc, tối đa 72 ký tự; new_password bắt buộc, 10–72 ký tự và khác mật khẩu hiện tại | 204, không body; giữ nguyên access token, refresh session và cookie |
 | LogoutAll | Bearer access token; không body | 204, không body; thu hồi tất cả refresh session của người đang đăng nhập; Set-Cookie xóa refreshToken |
 | Profile | full_name bắt buộc, không null/rỗng/chỉ có khoảng trắng, dài 1–120 ký tự; body thiếu full_name trả 400 VALIDATION_ERROR | User (200); chỉ cập nhật full_name, không đổi email/password/role/is_active |
 | UserStatus | is_active | User |
@@ -36,6 +38,8 @@ Field dưới đây là thiết kế; khi viết OpenAPI phải khai báo requir
 | CourseStatistics | Không ghi | course_id, enrolled_students, quiz_count, submitted_attempts, completed_students, completion_rate, generated_at |
 | QuizStatistics | Không ghi | quiz_id, submitted_attempts, unique_students, average_score nullable, best_scores[{student_id,score}], hardest_questions[{question_id,wrong_count}], generated_at |
 | SystemStatistics | Không ghi | active_users, teachers, published_courses, enrollments, submitted_attempts, generated_at |
+
+EmailVerificationToken lưu hash SHA-256 của token ngẫu nhiên 32 byte, hạn 24 giờ và used_at. Token sai/hết hạn/đã dùng trả 400 INVALID_EMAIL_VERIFICATION_TOKEN; payload sai trả 400 VALIDATION_ERROR. Verify thành công ghi email_verified_at và used_at trong cùng transaction, giữ nguyên is_active. Gửi lại không vô hiệu hóa link cũ chưa hết hạn/chưa dùng. Login đúng mật khẩu nhưng email chưa xác minh trả 403 EMAIL_NOT_VERIFIED và không cấp token; refresh cũng từ chối user chưa xác minh. Lỗi gửi SMTP trả 503 EMAIL_SEND_FAILED; đăng ký/gửi lại rollback dữ liệu của thao tác khi gửi thất bại.
 
 Email register/login được chuẩn hóa trong service bằng `trim().toLowerCase(Locale.ROOT)` trước khi lưu hoặc xác thực; ví dụ `"User@Example.com"` trở thành `"user@example.com"`. DTO được validation trước khi gọi service: null/rỗng bị `@NotBlank` từ chối; register có thêm `@Email`, nên email có khoảng trắng đầu/cuối có thể bị trả 400 trước khi service kịp trim. DTO không tự thay đổi email; password luôn được giữ nguyên.
 

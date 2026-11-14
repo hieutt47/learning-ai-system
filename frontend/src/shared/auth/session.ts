@@ -76,7 +76,7 @@ export function restoreSession(): Promise<void> {
         const user = await apiGet<User>('/users/me')
         updateSession({ user, isLoading: false, error: null })
       } catch (error) {
-        if (isApiError(error) && (error.status === 401 || error.code === 'ACCOUNT_INACTIVE')) {
+        if (isApiError(error) && (error.status === 401 || error.code === 'ACCOUNT_INACTIVE' || error.code === 'EMAIL_NOT_VERIFIED')) {
           clearSession()
         } else {
           accessToken = null
@@ -118,20 +118,16 @@ export function logout(): Promise<void> {
   return logoutPromise
 }
 
-async function endAuthenticatedSession(path: string, request?: ChangePasswordRequest): Promise<void> {
+export function changePassword(request: ChangePasswordRequest): Promise<void> {
+  return apiPost<void>('/auth/change-password', request)
+}
+
+export async function logoutAll(): Promise<void> {
   const pendingSession = restorePromise ?? refreshPromise
   await pendingSession?.catch(() => undefined)
-  await apiPost<void>(path, request)
+  await apiPost<void>('/auth/logout-all')
   await refreshPromise?.catch(() => undefined)
   clearSession()
-}
-
-export function changePassword(request: ChangePasswordRequest): Promise<void> {
-  return endAuthenticatedSession('/auth/change-password', request)
-}
-
-export function logoutAll(): Promise<void> {
-  return endAuthenticatedSession('/auth/logout-all')
 }
 
 setAccessTokenProvider(() => accessToken)
