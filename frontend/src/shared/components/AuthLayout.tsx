@@ -15,12 +15,11 @@ export function AuthLayout() {
           <b>Learning AI</b>
         </Link>
         <div className="auth-introduction">
-          <h2>Học miễn phí. Giảng viên soạn bài nhanh hơn với AI.</h2>
-          <p>Video, tài liệu, quiz và flashcard trong một nơi. AI chỉ tạo bản nháp — giảng viên luôn là người duyệt trước khi xuất bản.</p>
+          <h2>Nền tảng học tập trực tuyến tích hợp AI</h2>
+          <p>Giảng viên tạo khóa học, bài học, quiz và flashcard.</p>
           <ul>
-            <li><Icon name="check" />Mọi khóa học đều miễn phí</li>
-            <li><Icon name="check" />Học theo tiến độ của riêng bạn</li>
-            <li><Icon name="check" />Ôn tập bằng quiz và flashcard</li>
+            <li><Icon name="check" /><span>AI sinh bản nháp quiz/flashcard để giảng viên sửa và duyệt; không bao giờ tự xuất bản.</span></li>
+            <li><Icon name="check" /><span>Sinh viên ghi danh, học, làm quiz, xem kết quả và ôn flashcard.</span></li>
           </ul>
         </div>
       </section>

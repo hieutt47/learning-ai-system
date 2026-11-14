@@ -6,9 +6,11 @@
 .auth-logo-mark{width:36px;height:36px;border-radius:8px;background:var(--on-hero);color:var(--hero);display:grid;place-items:center;flex:none}
 .auth-introduction{display:flex;flex-direction:column;gap:20px;position:relative}
 .auth .intro h2{margin:0;font-size:32px;line-height:1.25;font-weight:700;max-width:520px}
-.auth .intro p{margin:0;font-size:16px;color:color-mix(in srgb,var(--on-hero) 85%,transparent);max-width:480px}
+.auth .intro p{margin:0;font-size:16px;line-height:1.6;color:color-mix(in srgb,var(--on-hero) 85%,transparent)}
 .auth .intro ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
-.auth .intro li{display:flex;align-items:center;gap:10px;color:color-mix(in srgb,var(--on-hero) 85%,transparent)}
+.auth .intro li{display:flex;align-items:flex-start;gap:10px;line-height:1.6;color:color-mix(in srgb,var(--on-hero) 85%,transparent)}
+.auth .intro li .ic{flex-shrink:0;margin-top:3px}
+.auth .intro li span{min-width:0}
 .auth-shape{position:absolute;pointer-events:none}
 .auth-shape-ring{right:-140px;top:-140px;width:420px;height:420px;border-radius:999px;border:56px solid color-mix(in srgb,var(--on-hero) 8%,transparent)}
 .auth-shape-square{right:96px;bottom:120px;width:120px;height:120px;border-radius:16px;background:color-mix(in srgb,var(--on-hero) 20%,transparent);transform:rotate(14deg)}

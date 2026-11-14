@@ -10,7 +10,7 @@ export function updateProfile(request: ProfileRequest): Promise<User> {
   return apiPatch<User>('/users/me', request)
 }
 
-export function getUsers(params: PageParams, signal?: AbortSignal): Promise<Page<User>> {
+export function getUsers(params: PageParams & { email?: string }, signal?: AbortSignal): Promise<Page<User>> {
   return apiGet<Page<User>>('/users', { query: { ...params }, signal })
 }
 

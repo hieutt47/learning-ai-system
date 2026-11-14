@@ -22,6 +22,7 @@ import vn.edu.learningai.exception.ErrorCode;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -61,10 +62,18 @@ public class UserService {
 
     @PreAuthorize("hasRole('ADMIN')")
     @Transactional(readOnly = true)
-    public PageResponse<UserResponse> getUsers(Pageable pageable) {
+    public PageResponse<UserResponse> getUsers(String email, Pageable pageable) {
+        String pattern = null;
+        if (email != null && !email.isBlank()) {
+            String keyword = email.trim().toLowerCase(Locale.ROOT);
+            if (keyword.length() > 254) {
+                throw ApiException.fieldError("email", "Email search must not exceed 254 characters");
+            }
+            pattern = "%" + keyword.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
+        }
         Sort sort = normalizeSort(pageable.getSort());
         Pageable request = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
-        Page<User> users = userRepository.findAll(request);
+        Page<User> users = userRepository.searchByEmail(pattern, request);
         Page<UserResponse> responses = users.map(user -> userMapper.toUserResponse(user));
         return PageResponse.from(responses);
     }

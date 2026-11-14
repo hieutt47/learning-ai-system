@@ -39,5 +39,8 @@
 | T33 | COURSE/ENROLL | Archive khóa đã có enrollment | Enroll mới chặn; member cũ vẫn học; không xóa history |
 | T34 | UI-01 | Teacher → student → result → statistics | Luồng hoàn chỉnh, loading/error/empty hợp lý |
 | T35 | Portability | Chạy T01–T34 Java/Python trên fixture tương đương | Cùng contract/business outcome |
+| T36 | AUTH-01 | User active đổi mật khẩu; sai mật khẩu hiện tại, mật khẩu mới trùng/có độ dài sai; guest gọi API | Thành công 204, mật khẩu mới được băm, mật khẩu cũ không đăng nhập được, tất cả refresh session bị thu hồi, cookie bị xóa; lỗi payload/nghiệp vụ trả 400 theo field và không đổi dữ liệu/phiên; guest trả 401 |
+| T37 | AUTH-01 | User active có nhiều refresh session gọi logout-all; thử refresh các phiên cũ và đăng nhập mới | 204, thu hồi tất cả refresh session của đúng user và xóa cookie; refresh phiên cũ trả 401, user khác không bị ảnh hưởng; access token cũ còn hiệu lực đến exp nếu user active; đăng nhập mới thành công |
+| T38 | AUTH-02 | Admin tìm email một phần, khác hoa/thường, có khoảng trắng hoặc ký tự %, _ và !; bỏ điều kiện, tìm không có kết quả, chuỗi quá dài; student gọi API | Tìm theo chuỗi literal sau trim, không phân biệt hoa/thường; giữ phân trang/sắp xếp; bỏ điều kiện trả danh sách không lọc, không khớp trả items rỗng; vượt 254 ký tự trả 400 theo field email; student trả 403 |
 
 Mỗi lần chạy ghi backend, version, fixture, pass/fail và evidence trong báo cáo riêng. Không đổi expected chỉ để khớp implementation; đổi nghiệp vụ phải lead review. Race/rollback cần integration test MySQL thực khi code có transaction; không thể xác nhận bằng tài liệu hiện tại.

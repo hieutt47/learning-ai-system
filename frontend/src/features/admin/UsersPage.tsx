@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, App, Button, Card, Modal, Select, Table, Tag, Tooltip, type TableColumnsType } from 'antd'
+import { Alert, App, Button, Card, Input, Modal, Select, Table, Tag, Tooltip, type TableColumnsType } from 'antd'
 import { useState } from 'react'
 import { isApiError } from '../../shared/api/client'
 import { useCurrentUser, ROLE_LABEL } from '../../shared/auth/currentUser'
@@ -15,11 +15,12 @@ export function UsersPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [sort, setSort] = useState('created_at,desc')
+  const [email, setEmail] = useState('')
   const [target, setTarget] = useState<User | null>(null)
   const { user: currentUser } = useCurrentUser()
   const { message } = App.useApp()
   const queryClient = useQueryClient()
-  const params = { page, page_size: pageSize, sort }
+  const params = { page, page_size: pageSize, sort, email }
   const query = useQuery({
     queryKey: ['users', 'list', params],
     queryFn: ({ signal }) => getUsers(params, signal),
@@ -81,6 +82,15 @@ export function UsersPage() {
         <div className="account-toolbar">
           <h2>Tất cả người dùng</h2>
           <div className="account-controls">
+            <Input.Search
+              aria-label="Tìm người dùng theo email"
+              placeholder="Tìm theo email"
+              style={{ width: 260, maxWidth: '100%' }}
+              allowClear
+              maxLength={254}
+              disabled={mutation.isPending}
+              onSearch={(value) => { setEmail(value.trim()); setPage(1) }}
+            />
             <Select aria-label="Sắp xếp người dùng" value={sort} disabled={mutation.isPending} options={[
               { value: 'created_at,desc', label: 'Mới nhất' },
               { value: 'created_at,asc', label: 'Cũ nhất' },
@@ -97,7 +107,7 @@ export function UsersPage() {
             dataSource={query.data.items}
             loading={query.isFetching}
             scroll={{ x: 830 }}
-            locale={{ emptyText: <EmptyState description="Chưa có người dùng." /> }}
+            locale={{ emptyText: <EmptyState description={email ? 'Không tìm thấy người dùng có email phù hợp.' : 'Chưa có người dùng.'} /> }}
             pagination={{
               current: page, pageSize, total: query.data.total, showSizeChanger: true, pageSizeOptions: [10, 20, 50, 100],
               showTotal: (total) => `${total} người dùng`,

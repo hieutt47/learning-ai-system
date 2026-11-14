@@ -25,3 +25,8 @@ export interface AuthResponse {
 export interface ProfileRequest {
   full_name: string
 }
+
+export interface ChangePasswordRequest {
+  current_password: string
+  new_password: string
+}

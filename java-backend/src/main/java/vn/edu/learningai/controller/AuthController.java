@@ -6,6 +6,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import vn.edu.learningai.dto.request.ChangePasswordRequest;
 import vn.edu.learningai.dto.request.LoginRequest;
 import vn.edu.learningai.dto.request.RegisterRequest;
 import vn.edu.learningai.dto.response.AuthResponse;
@@ -47,6 +48,22 @@ public class AuthController {
             .header(
                 HttpHeaders.SET_COOKIE,
                 refreshTokenCookieService.clear().toString())
+            .build();
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(request);
+        return ResponseEntity.noContent()
+            .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.clear().toString())
+            .build();
+    }
+
+    @PostMapping("/logout-all")
+    public ResponseEntity<Void> logoutAll() {
+        authService.logoutAll();
+        return ResponseEntity.noContent()
+            .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.clear().toString())
             .build();
     }
 

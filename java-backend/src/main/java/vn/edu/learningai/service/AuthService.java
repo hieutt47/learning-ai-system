@@ -12,6 +12,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.learningai.common.enums.UserRole;
+import vn.edu.learningai.dto.request.ChangePasswordRequest;
 import vn.edu.learningai.dto.request.LoginRequest;
 import vn.edu.learningai.dto.request.RegisterRequest;
 import vn.edu.learningai.dto.response.UserResponse;
@@ -20,6 +21,7 @@ import vn.edu.learningai.exception.ApiException;
 import vn.edu.learningai.exception.ErrorCode;
 import vn.edu.learningai.mapper.UserMapper;
 import vn.edu.learningai.repository.UserRepository;
+import vn.edu.learningai.security.SecurityHelper;
 import vn.edu.learningai.security.custom.CustomUserDetails;
 import vn.edu.learningai.security.jwt.JwtService;
 import vn.edu.learningai.security.service.RefreshTokenService;
@@ -35,6 +37,7 @@ public class AuthService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
+    private final SecurityHelper securityHelper;
 
     @Getter
     @AllArgsConstructor
@@ -96,6 +99,27 @@ public class AuthService {
             .accessToken(newAccessToken)
             .refreshToken(newRefreshToken)
             .build();
+    }
+
+    @Transactional
+    public void changePassword(ChangePasswordRequest request) {
+        User user = securityHelper.getCurrentUser();
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            throw ApiException.fieldError("current_password", "Current password is incorrect");
+        }
+        if (request.getNewPassword().equals(request.getCurrentPassword())) {
+            throw ApiException.fieldError("new_password", "New password must differ from current password");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+        refreshTokenService.revokeAllForUser(user.getId());
+    }
+
+    @Transactional
+    public void logoutAll() {
+        User user = securityHelper.getCurrentUser();
+        refreshTokenService.revokeAllForUser(user.getId());
     }
 
     @Transactional

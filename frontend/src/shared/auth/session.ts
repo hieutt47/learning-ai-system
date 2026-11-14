@@ -7,7 +7,7 @@ import {
   setSessionExpiredHandler,
 } from '../api/client'
 import { queryClient } from '../api/queryClient'
-import type { AuthResponse, LoginRequest, User } from './types'
+import type { AuthResponse, ChangePasswordRequest, LoginRequest, User } from './types'
 
 interface SessionState {
   user: User | null
@@ -116,6 +116,22 @@ export function logout(): Promise<void> {
     })
   }
   return logoutPromise
+}
+
+async function endAuthenticatedSession(path: string, request?: ChangePasswordRequest): Promise<void> {
+  const pendingSession = restorePromise ?? refreshPromise
+  await pendingSession?.catch(() => undefined)
+  await apiPost<void>(path, request)
+  await refreshPromise?.catch(() => undefined)
+  clearSession()
+}
+
+export function changePassword(request: ChangePasswordRequest): Promise<void> {
+  return endAuthenticatedSession('/auth/change-password', request)
+}
+
+export function logoutAll(): Promise<void> {
+  return endAuthenticatedSession('/auth/logout-all')
 }
 
 setAccessTokenProvider(() => accessToken)

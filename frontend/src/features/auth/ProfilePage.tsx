@@ -8,6 +8,7 @@ import '../../shared/styles/management.css'
 import { TeacherRequestSection } from '../teacher-requests/TeacherRequestSection'
 import { getProfile } from './api'
 import { ProfileForm } from './ProfileForm'
+import { AccountSecurity } from './AccountSecurity'
 
 export function ProfilePage() {
   const query = useQuery({
@@ -36,6 +37,7 @@ export function ProfilePage() {
         </div>
       </Card>
       <ProfileForm user={user} />
+      <AccountSecurity />
       <TeacherRequestSection user={user} onRefreshUser={() => void query.refetch()} />
     </div>
   )

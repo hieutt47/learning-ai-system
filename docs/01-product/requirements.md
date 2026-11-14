@@ -4,8 +4,8 @@ Nguồn: README gốc. ID nối yêu cầu → API → dữ liệu → tình hu�
 
 | ID | MVP | Điều kiện nghiệm thu |
 |---|---|---|
-| AUTH-01 | Đăng ký, đăng nhập, đăng xuất | Đăng ký chỉ STUDENT; mật khẩu băm; logout thu hồi refresh session và xóa cookie; access token còn hiệu lực đến exp nếu user active |
-| AUTH-02 | Role và khóa tài khoản | Kiểm tra ADMIN/TEACHER/STUDENT và trạng thái active |
+| AUTH-01 | Đăng ký, đăng nhập, đổi mật khẩu, đăng xuất | Đăng ký chỉ STUDENT; mật khẩu băm; đổi mật khẩu xác minh mật khẩu hiện tại và thu hồi tất cả refresh session; logout thu hồi phiên tương ứng, logout-all thu hồi tất cả refresh session và xóa cookie; access token còn hiệu lực đến exp nếu user active |
+| AUTH-02 | Role và quản lý tài khoản | Kiểm tra ADMIN/TEACHER/STUDENT và trạng thái active; admin tìm user theo email không phân biệt hoa/thường, có phân trang/sắp xếp và khóa/mở khóa tài khoản |
 | USER-01 | Phê duyệt Teacher | Admin quyết định; user không tự cấp quyền |
 | CAT-01 | Danh mục | Admin CRUD; không xóa danh mục đang dùng |
 | COURSE-01 | Quản lý khóa, ảnh bìa, giá, publication | Owner/admin; MVP chỉ publish price=0 |

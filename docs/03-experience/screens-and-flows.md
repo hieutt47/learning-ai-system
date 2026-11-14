@@ -7,7 +7,9 @@ Frontend dùng API chung, chưa chọn framework. Không render trực tiếp en
 | Guest | Marketplace, lọc category/tìm khóa, course detail/outline, register/login |
 | Student | My courses, learning workspace video + documents + quiz/card, quiz attempt, result/review, attempt history, gửi Teacher request |
 | Teacher | Dashboard courses, course editor/thumbnail/publication, lesson editor/transcript/documents, quiz editor/options, AI candidate preview, flashcard review/publish, course/quiz statistics |
-| Admin | Users/lock, Teacher request approvals, category CRUD, system statistics |
+| Admin | Users/search email/lock, Teacher request approvals, category CRUD, system statistics |
+
+Luồng tài khoản: login/register dùng chung một AuthLayout; nội dung giới thiệu lấy từ bối cảnh sản phẩm trong design-brief.md. User active vào Hồ sơ để sửa họ tên, đổi mật khẩu hoặc đăng xuất tất cả phiên. Đổi mật khẩu nhập mật khẩu hiện tại, mật khẩu mới và xác nhận; lỗi hiện theo field. Đổi mật khẩu/logout-all thành công xóa phiên/cache và chuyển về đăng nhập; thất bại giữ form và hiển thị lỗi.
 
 Luồng Student: marketplace → detail → login nếu cần → enroll miễn phí → My courses → lesson → start quiz → submit → score/review → history. Quiz start/submit lỗi mạng cho phép retry theo semantics, không mất kết quả; không hiển thị đáp án trước response submit.
 

@@ -19,7 +19,7 @@ import { LoadingState, NotFoundState } from '../components/PageState'
 import { PlaceholderPage } from '../components/PlaceholderPage'
 import { RouteErrorPage } from '../components/RouteErrorPage'
 import { DevScreensPage } from '../dev/DevScreensPage'
-import { HomeRedirect, RequireAccess } from './guards'
+import { GuestOnly, HomeRedirect, RequireAccess } from './guards'
 import { paths } from './paths'
 import type { RouteHandle, TabItem } from './routeHandle'
 import { SCREENS, type ScreenKey } from './screens'
@@ -79,7 +79,7 @@ const devRoutes: RouteObject[] = import.meta.env.DEV
 
 export const router = createBrowserRouter([
   {
-    element: <AuthLayout />,
+    element: <GuestOnly />,
     errorElement: <RouteErrorPage />,
     children: [
       {

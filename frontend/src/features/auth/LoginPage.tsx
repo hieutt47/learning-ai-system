@@ -1,13 +1,12 @@
 import { useMutation } from '@tanstack/react-query'
 import { Alert, App, Button, Form, Input } from 'antd'
-import { useEffect } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router'
+import { Link } from 'react-router'
 import { isApiError } from '../../shared/api/client'
 import { useCurrentUser } from '../../shared/auth/currentUser'
 import { login, restoreSession } from '../../shared/auth/session'
 import type { LoginRequest } from '../../shared/auth/types'
 import { Icon } from '../../shared/components/Icon'
-import { homePathFor, paths } from '../../shared/routing/paths'
+import { paths } from '../../shared/routing/paths'
 
 function loginError(error: unknown): string {
   if (isApiError(error)) {
@@ -28,26 +27,11 @@ function loginError(error: unknown): string {
 export function LoginPage() {
   const [form] = Form.useForm<LoginRequest>()
   const { message } = App.useApp()
-  const navigate = useNavigate()
-  const location = useLocation()
-  const { role, error: sessionError } = useCurrentUser()
-
-  const redirectParam = new URLSearchParams(location.search).get('redirect')
-
-  useEffect(() => {
-    if (role !== 'GUEST') {
-      const target = redirectParam || homePathFor(role)
-      navigate(target, { replace: true })
-    }
-  }, [role, redirectParam, navigate])
+  const { error: sessionError } = useCurrentUser()
 
   const mutation = useMutation({
     mutationFn: login,
-    onSuccess: (user) => {
-      void message.success('Đăng nhập thành công')
-      const target = redirectParam || homePathFor(user.role)
-      navigate(target, { replace: true })
-    },
+    onSuccess: () => void message.success('Đăng nhập thành công'),
     onError: (error) => {
       if (isApiError(error)) {
         const errors = error.fieldErrors()
