@@ -3,6 +3,7 @@ package vn.edu.learningai.repository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import vn.edu.learningai.common.enums.LessonStatus;
 
 import java.util.Optional;
 
@@ -13,19 +14,21 @@ public class QuizContextRepository {
 
     public Optional<LessonContext> findLesson(Long lessonId) {
         return jdbc.sql("""
-            SELECT l.course_id, c.teacher_id
+            SELECT l.course_id, c.teacher_id, l.status
             FROM lessons l JOIN courses c ON c.id = l.course_id
             WHERE l.id = :lesson_id
             """)
             .param("lesson_id", lessonId)
-            .query((rs, row) -> new LessonContext(rs.getLong("course_id"), rs.getLong("teacher_id")))
+            .query((rs, row) -> new LessonContext(rs.getLong("course_id"), rs.getLong("teacher_id"),
+                LessonStatus.valueOf(rs.getString("status"))))
             .optional();
     }
 
     public boolean isEnrolled(Long courseId, Long studentId) {
         return jdbc.sql("""
-            SELECT COUNT(*) FROM course_members
-            WHERE course_id = :course_id AND student_id = :student_id
+            SELECT COUNT(*) FROM course_members m JOIN courses c ON c.id = m.course_id
+            WHERE m.course_id = :course_id AND m.student_id = :student_id
+              AND c.is_published = TRUE AND c.archived_at IS NULL
             """)
             .param("course_id", courseId)
             .param("student_id", studentId)
@@ -66,7 +69,11 @@ public class QuizContextRepository {
             .query(Boolean.class).single();
     }
 
-    public record LessonContext(Long courseId, Long teacherId) {}
+    public record LessonContext(Long courseId, Long teacherId, LessonStatus status) {
+        public LessonContext(Long courseId, Long teacherId) {
+            this(courseId, teacherId, LessonStatus.PUBLISHED);
+        }
+    }
 
     public record GenerationContext(Long lessonId, Long createdBy, String type, String status) {}
 }

@@ -14,6 +14,8 @@ import vn.edu.learningai.exception.ApiException;
 import vn.edu.learningai.exception.ErrorCode;
 import vn.edu.learningai.repository.LessonDocumentRepository;
 import vn.edu.learningai.repository.LessonRepository;
+import vn.edu.learningai.repository.CourseRepository;
+import vn.edu.learningai.common.enums.LessonStatus;
 import vn.edu.learningai.repository.UserRepository;
 
 import java.util.Optional;
@@ -25,6 +27,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class LessonServiceTest {
     @Mock LessonRepository lessonRepository;
+    @Mock CourseRepository courseRepository;
     @Mock LessonDocumentRepository documentRepository;
     @Mock UserRepository userRepository;
     @Mock DocumentStorage documentStorage;
@@ -35,7 +38,8 @@ class LessonServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new LessonService(lessonRepository, documentRepository, userRepository, documentStorage, textExtractor, documentCleanup);
+        service = new LessonService(lessonRepository, courseRepository, documentRepository, userRepository,
+            documentStorage, textExtractor, documentCleanup);
     }
 
     @Test
@@ -117,7 +121,7 @@ class LessonServiceTest {
 
     private Lesson lesson(String transcript) {
         return Lesson.builder().id(10L).courseId(20L).title("Bài 1").videoUrl("")
-            .transcriptText(transcript).orderIndex(1).build();
+            .transcriptText(transcript).orderIndex(1).status(LessonStatus.PUBLISHED).build();
     }
 
     private User user(UserRole role) {

@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import vn.edu.learningai.dto.response.CourseOwnerResponse;
 import vn.edu.learningai.entity.Course;
+import vn.edu.learningai.common.enums.LessonStatus;
 import vn.edu.learningai.exception.ApiException;
 import vn.edu.learningai.exception.ErrorCode;
 import vn.edu.learningai.repository.CourseRepository;
@@ -25,11 +26,12 @@ public class CoursePublicationService {
     private final CourseOwnership courseOwnership;
     @Transactional
     public CourseOwnerResponse setPublished(Long courseId, boolean publish, AuthenticatedUser actor) {
-        Course course = courseOwnership.requireOwned(courseId, actor);
+        Course course = courseOwnership.requireOwnedForUpdate(courseId, actor);
         if (publish) {
             if (course.getArchivedAt() != null) {
                 throw new ApiException(ErrorCode.INVALID_STATE, "Archived courses cannot be published");
             }
+            requireFreePrice(course);
             if (Boolean.TRUE.equals(course.getIsPublished())) {
                 return courseOwnerAssembler.toResponse(course);
             }
@@ -42,7 +44,7 @@ public class CoursePublicationService {
     }
     @Transactional
     public CourseOwnerResponse archive(Long courseId, AuthenticatedUser actor) {
-        Course course = courseOwnership.requireOwned(courseId, actor);
+        Course course = courseOwnership.requireOwnedForUpdate(courseId, actor);
         if (course.getArchivedAt() != null) {
             return courseOwnerAssembler.toResponse(course);
         }
@@ -64,12 +66,14 @@ public class CoursePublicationService {
         if (!StringUtils.hasText(course.getThumbnailStorageKey())) {
             throw notPublishable("thumbnail is required");
         }
+        if (lessonRepository.countByCourseIdAndStatus(course.getId(), LessonStatus.PUBLISHED) < 1) {
+            throw notPublishable("at least one published lesson is required");
+        }
+    }
+    private void requireFreePrice(Course course) {
         if (course.getPrice() != null && course.getPrice().compareTo(BigDecimal.ZERO) > 0) {
             throw new ApiException(ErrorCode.COURSE_NOT_FREE,
                 "Only free courses can be published in this version");
-        }
-        if (lessonRepository.countByCourseId(course.getId()) < 1) {
-            throw notPublishable("at least one lesson is required");
         }
     }
     private ApiException notPublishable(String reason) {

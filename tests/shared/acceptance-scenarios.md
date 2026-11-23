@@ -13,7 +13,7 @@
 | T07 | CAT-01 | CRUD category; xóa category có course | Admin đúng; delete liên quan 409 |
 | T08 | COURSE-02 | Guest list/detail Draft và Published | Chỉ Published; Draft 404; không lộ video/đáp án |
 | T09 | COURSE-01 | Teacher B sửa course A bằng course/lesson/question ID | 403/404 theo visibility, DB không đổi |
-| T10 | COURSE-01 | Publish thiếu lesson/ảnh; price>0 | Validation/conflict; không publish |
+| T10 | COURSE-01 | Publish thiếu lesson/ảnh; price>0; đổi giá khóa Published từ 0 lên >0 | Validation/conflict; không publish hoặc đổi giá; khóa Published giữ giá 0 |
 | T11 | ENROLL-01 | Enroll free, retry và request đồng thời | 201/200; một membership duy nhất |
 | T12 | ENROLL-01 | Enroll Draft/Archived hoặc chưa login | 404/409 theo route state; 401 khi chưa login |
 | T13 | LESSON-01 | Unenrolled student đọc video/document | 403/404, không trả URL storage/transcript |

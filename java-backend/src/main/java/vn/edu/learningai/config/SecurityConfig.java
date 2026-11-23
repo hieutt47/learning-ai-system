@@ -95,6 +95,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PATCH,
                     "/api/v1/courses/*", "/api/v1/courses/*/publication", "/api/v1/courses/*/archive",
                     "/api/v1/courses/*/lessons/order", "/api/v1/lessons/*",
+                    "/api/v1/lessons/*/status",
                     "/api/v1/quizzes/*", "/api/v1/quizzes/*/publication",
                     "/api/v1/flashcards/*", "/api/v1/flashcards/*/publication")
                     .hasAnyRole("TEACHER", "ADMIN")

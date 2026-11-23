@@ -25,6 +25,8 @@ import vn.edu.learningai.repository.UserRepository;
 import vn.edu.learningai.security.AuthenticatedUser;
 import vn.edu.learningai.storage.StoredFile;
 
+import java.math.BigDecimal;
+
 @Service
 @RequiredArgsConstructor
 public class CourseService {
@@ -59,7 +61,13 @@ public class CourseService {
 
     @Transactional
     public CourseOwnerResponse update(Long id, CoursePatchRequest request, AuthenticatedUser actor) {
-        Course course = getOwnedCourse(id, actor);
+        Course course = courseOwnership.requireOwnedForUpdate(id, actor);
+
+        if (Boolean.TRUE.equals(course.getIsPublished()) && request.getPrice() != null
+            && request.getPrice().compareTo(BigDecimal.ZERO) > 0) {
+            throw new ApiException(ErrorCode.COURSE_NOT_FREE,
+                "Unpublish the course before setting a paid price");
+        }
 
         if (request.getTitle() != null) {
             course.setTitle(request.getTitle());

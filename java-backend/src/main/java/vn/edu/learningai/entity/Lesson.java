@@ -3,6 +3,8 @@ package vn.edu.learningai.entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -16,6 +18,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
+import vn.edu.learningai.common.enums.LessonStatus;
 
 @Entity
 @Getter
@@ -44,6 +47,10 @@ public class Lesson {
     @Column(name = "order_index", nullable = false)
     private Integer orderIndex;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private LessonStatus status;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -63,6 +70,10 @@ public class Lesson {
             throw new IllegalArgumentException("orderIndex must be positive");
         }
         this.orderIndex = newOrderIndex;
+    }
+
+    public void changeStatus(LessonStatus newStatus) {
+        this.status = newStatus;
     }
 
     private String normalizeOptionalText(String value) {

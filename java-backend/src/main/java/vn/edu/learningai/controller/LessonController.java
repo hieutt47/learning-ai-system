@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import vn.edu.learningai.dto.request.LessonReorderRequest;
 import vn.edu.learningai.dto.request.LessonWriteRequest;
+import vn.edu.learningai.dto.request.LessonStatusRequest;
 import vn.edu.learningai.dto.response.LessonDocumentResponse;
 import vn.edu.learningai.dto.response.LessonResponse;
 import vn.edu.learningai.service.CurrentUserProvider;
@@ -69,6 +70,14 @@ public class LessonController {
         @Valid @RequestBody LessonWriteRequest request
     ) {
         return lessonService.update(lessonId, request, currentUserProvider.currentUserId());
+    }
+
+    @PatchMapping("/lessons/{lessonId}/status")
+    public LessonResponse changeLessonStatus(
+        @PathVariable Long lessonId,
+        @Valid @RequestBody LessonStatusRequest request
+    ) {
+        return lessonService.changeStatus(lessonId, request.status(), currentUserProvider.currentUserId());
     }
 
     @DeleteMapping("/lessons/{lessonId}")

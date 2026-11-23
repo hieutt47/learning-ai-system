@@ -72,7 +72,7 @@ class QuizMySqlIntegrationTest {
         jdbc.sql("INSERT INTO courses(teacher_id,category_id,title,description) VALUES(:user,:category,:title,'Test')")
             .param("user", userId).param("category", categoryId).param("title", key).update();
         courseId = jdbc.sql("SELECT id FROM courses WHERE teacher_id=:user").param("user", userId).query(Long.class).single();
-        jdbc.sql("INSERT INTO lessons(course_id,title,video_url,order_index) VALUES(:course,'Test','unused-test-video',0)")
+        jdbc.sql("INSERT INTO lessons(course_id,title,video_url,order_index,status) VALUES(:course,'Test','unused-test-video',0,'PUBLISHED')")
             .param("course", courseId).update();
         lessonId = jdbc.sql("SELECT id FROM lessons WHERE course_id=:course").param("course", courseId).query(Long.class).single();
         authenticate();

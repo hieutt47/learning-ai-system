@@ -61,6 +61,42 @@ class CoursePublicationControllerTest extends IntegrationTestBase {
         assertThat(isPublished(3)).isFalse();
     }
     @Test
+    void publishedCourseCannotBecomePaidUntilUnpublished() throws Exception {
+        mockMvc.perform(patch("/api/v1/courses/2")
+                .header("Authorization", "Bearer " + tokenFor(2))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"price\":120000}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("COURSE_NOT_FREE"));
+        assertThat(isPublished(2)).isTrue();
+        assertThat(jdbcTemplate.queryForObject("SELECT price FROM courses WHERE id = 2",
+            java.math.BigDecimal.class)).isEqualByComparingTo("0");
+
+        mockMvc.perform(patch("/api/v1/courses/2")
+                .header("Authorization", "Bearer " + tokenFor(2))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"price\":0}"))
+            .andExpect(status().isOk());
+        mockMvc.perform(patch("/api/v1/courses/2/publication")
+                .header("Authorization", "Bearer " + tokenFor(2))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"is_published\":false}"))
+            .andExpect(status().isOk());
+        mockMvc.perform(patch("/api/v1/courses/2")
+                .header("Authorization", "Bearer " + tokenFor(2))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"price\":120000}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.is_published").value(false));
+        mockMvc.perform(patch("/api/v1/courses/2/publication")
+                .header("Authorization", "Bearer " + tokenFor(2))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"is_published\":true}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("COURSE_NOT_FREE"));
+        assertThat(isPublished(2)).isFalse();
+    }
+    @Test
     void draftBecomesPublishedAndAppearsInTheMarketplace() throws Exception {
         giveThumbnail(1);
         addLesson(1);
@@ -276,7 +312,7 @@ class CoursePublicationControllerTest extends IntegrationTestBase {
         Integer maxOrder = jdbcTemplate.queryForObject(
             "SELECT COALESCE(MAX(order_index), 0) FROM lessons WHERE course_id = ?", Integer.class, courseId);
         jdbcTemplate.update(
-            "INSERT INTO lessons (course_id, title, video_url, order_index) VALUES (?, ?, ?, ?)",
+            "INSERT INTO lessons (course_id, title, video_url, order_index, status) VALUES (?, ?, ?, ?, 'PUBLISHED')",
             courseId, "Bai hoc", "https://youtu.be/x", (maxOrder == null ? 0 : maxOrder) + 1);
     }
     private boolean isPublished(long courseId) {

@@ -26,12 +26,12 @@ public class StatisticsService {
     public CourseStatistics course(long id) {
         requireCourseOwner(id);
         long enrolled = count("SELECT COUNT(*) FROM course_members WHERE course_id=:id", id);
-        long quizzes = count("SELECT COUNT(*) FROM quizzes q JOIN lessons l ON l.id=q.lesson_id WHERE l.course_id=:id AND q.status='PUBLISHED'", id);
+        long quizzes = count("SELECT COUNT(*) FROM quizzes q JOIN lessons l ON l.id=q.lesson_id WHERE l.course_id=:id AND l.status='PUBLISHED' AND q.status='PUBLISHED'", id);
         long submitted = count("SELECT COUNT(*) FROM quiz_attempts a JOIN quizzes q ON q.id=a.quiz_id JOIN lessons l ON l.id=q.lesson_id WHERE l.course_id=:id AND a.status='SUBMITTED'", id);
         long completed = quizzes == 0 ? 0 : count("""
             SELECT COUNT(*) FROM course_members m WHERE m.course_id=:id AND NOT EXISTS (
               SELECT 1 FROM quizzes q JOIN lessons l ON l.id=q.lesson_id
-              WHERE l.course_id=:id AND q.status='PUBLISHED' AND NOT EXISTS (
+              WHERE l.course_id=:id AND l.status='PUBLISHED' AND q.status='PUBLISHED' AND NOT EXISTS (
                 SELECT 1 FROM quiz_attempts a WHERE a.quiz_id=q.id AND a.student_id=m.student_id
                 AND a.status='SUBMITTED'))
             """, id);
@@ -60,8 +60,10 @@ public class StatisticsService {
             WHERE q.quiz_id=:id AND (s.id IS NULL OR s.is_correct=FALSE)
             GROUP BY q.id ORDER BY wrong_count DESC,q.id
             """).param("id",id).query((rs,n) -> new HardQuestion(Long.toString(rs.getLong("id")),rs.getLong("wrong_count"))).list();
+        BigDecimal average = aggregate.average() == null ? null
+            : aggregate.average().setScale(2, RoundingMode.HALF_UP);
         return new QuizStatistics(Long.toString(id),aggregate.submitted(),aggregate.students(),
-            aggregate.average(),best,hardest,Instant.now());
+            average,best,hardest,Instant.now());
     }
 
     public SystemStatistics system() {
