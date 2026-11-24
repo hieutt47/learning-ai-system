@@ -7,11 +7,12 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { App, Button, Card, Form, Input, Modal, Space, Table, Tag, Tooltip, Typography, type TableProps } from 'antd'
+import { Alert, App, Button, Card, Form, Input, Modal, Space, Table, Tag, Tooltip, Typography, type TableProps } from 'antd'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { EmptyState, ErrorState, LoadingState } from '../../../shared/components/PageState'
 import { paths } from '../../../shared/routing/paths'
+import { useLessonEditability } from '../lessons/useLessonEditability'
 import { createQuiz, deleteQuiz, getLessonQuizzes, publishQuiz, quizKeys } from './quiz.api'
 import type { QuizStatus, QuizSummaryItem } from './quiz.types'
 
@@ -31,6 +32,8 @@ export function LessonQuizzesPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { message, modal } = App.useApp()
+  const editability = useLessonEditability(lessonId)
+  const readOnly = editability.readOnly
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [form] = Form.useForm<{ title: string }>()
@@ -135,14 +138,14 @@ export function LessonQuizzesPage() {
         <Space>
           {quiz.status === 'DRAFT' ? (
             <>
-              <Tooltip title="Chỉnh sửa câu hỏi">
+              <Tooltip title={readOnly ? 'Bài học hoặc khóa học đã lưu trữ: chỉ xem.' : 'Chỉnh sửa câu hỏi'}>
                 <Button
                   type="text"
-                  icon={<EditOutlined />}
+                  icon={readOnly ? <EyeOutlined /> : <EditOutlined />}
                   onClick={() => navigate(paths.quizEditor(quiz.id))}
                 />
               </Tooltip>
-              <Tooltip title="Xóa quiz nháp">
+              {!readOnly && <Tooltip title="Xóa quiz nháp">
                 <Button
                   type="text"
                   danger
@@ -150,7 +153,7 @@ export function LessonQuizzesPage() {
                   disabled={deleteMutation.isPending}
                   onClick={() => confirmDelete(quiz)}
                 />
-              </Tooltip>
+              </Tooltip>}
             </>
           ) : (
             <>
@@ -161,7 +164,7 @@ export function LessonQuizzesPage() {
                   onClick={() => navigate(paths.quizEditor(quiz.id))}
                 />
               </Tooltip>
-              {quiz.status === 'PUBLISHED' && (
+              {quiz.status === 'PUBLISHED' && !readOnly && (
                 <Tooltip title="Đóng quiz">
                   <Button
                     type="text"
@@ -178,12 +181,13 @@ export function LessonQuizzesPage() {
     },
   ]
 
-  if (quizzesQuery.isLoading) return <LoadingState tip="Đang tải danh sách quiz…" />
+  if (quizzesQuery.isLoading || editability.loading) return <LoadingState tip="Đang tải danh sách quiz…" />
+  if (editability.error) return <ErrorState error={editability.error} onRetry={editability.retry} />
   if (quizzesQuery.isError) {
     return <ErrorState error={quizzesQuery.error} onRetry={() => void quizzesQuery.refetch()} />
   }
 
-  const actions = (
+  const actions = !readOnly && (
     <Space>
       <Button
         icon={<ThunderboltOutlined />}
@@ -203,6 +207,7 @@ export function LessonQuizzesPage() {
 
   return (
     <>
+      {readOnly && <Alert type="warning" showIcon message="Bài học hoặc khóa học đã lưu trữ: quiz chỉ xem, không thể chỉnh sửa." style={{ marginBottom: 16 }} />}
       <Card
         title={
           <div>
@@ -212,12 +217,12 @@ export function LessonQuizzesPage() {
             </Typography.Paragraph>
           </div>
         }
-        extra={actions}
+        extra={actions || undefined}
       >
         {quizzes.length === 0 ? (
           <EmptyState
             description="Bài học chưa có quiz nào."
-            action={actions}
+            action={actions || undefined}
           />
         ) : (
           <Table<QuizSummaryItem>

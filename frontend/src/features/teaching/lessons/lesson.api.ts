@@ -11,12 +11,14 @@ import type {
   LessonDocumentItem,
   LessonFormValues,
   LessonListItem,
+  LessonStatus,
 } from './lesson.types'
 
 interface LessonWire {
   id: number | string
   course_id: number | string
   title: string
+  status: LessonStatus
   video_url: string
   transcript_text?: string | null
   order_index: number
@@ -41,6 +43,7 @@ const mapLesson = (lesson: LessonWire): LessonListItem => ({
   id: String(lesson.id),
   courseId: String(lesson.course_id),
   title: lesson.title,
+  status: lesson.status,
   videoUrl: lesson.video_url,
   transcriptText: lesson.transcript_text ?? undefined,
   orderIndex: lesson.order_index,
@@ -64,7 +67,7 @@ const mapDocument = (document: LessonDocumentWire): LessonDocumentItem => ({
 
 const writeBody = (values: LessonFormValues) => ({
   title: values.title.trim(),
-  video_url: values.videoUrl.trim(),
+  video_url: values.videoUrl?.trim() ?? '',
   transcript_text: values.transcriptText?.trim() || null,
 })
 
@@ -92,6 +95,10 @@ export async function createLesson(courseId: Id, values: LessonFormValues): Prom
 
 export async function updateLesson(lessonId: Id, values: LessonFormValues): Promise<LessonListItem> {
   return mapLesson(await apiPut<LessonWire>(`/lessons/${lessonId}`, writeBody(values)))
+}
+
+export async function changeLessonStatus(lessonId: Id, status: 'PUBLISHED' | 'ARCHIVED'): Promise<LessonListItem> {
+  return mapLesson(await apiPatch<LessonWire>(`/lessons/${lessonId}/status`, { status }))
 }
 
 export async function reorderCourseLessons(courseId: Id, lessonIds: Id[]): Promise<LessonListItem[]> {

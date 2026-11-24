@@ -43,6 +43,7 @@ export interface OwnedCourse {
 export interface EnrolledCourse extends PublicCourse {
   enrolledAt: IsoDateTime
   archivedAt?: IsoDateTime
+  learningAvailable: boolean
 }
 
 export interface CourseMember {

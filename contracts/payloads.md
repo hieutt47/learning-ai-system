@@ -23,8 +23,9 @@ Field dưới đây là thiết kế; khi viết OpenAPI phải khai báo requir
 | Publication/Archive | is_published / archived=true | CourseOwner |
 | CoursePublic | Không ghi | id, title, description, category, teacher {id,full_name}, thumbnail_url, price, currency, total_students, outline [{id,title,order_index}] |
 | Enrollment/Member | Không ghi | course_id, student_id, enrolled_at; Member thêm full_name, không lộ email public |
-| CourseEnrollment | Không ghi | CoursePublic + enrolled_at; khóa unpublish/archive vẫn xuất hiện cho enrolled user |
-| LessonWrite | title, video_url, transcript_text nullable, order_index | Lesson: id, course_id, title, normalized video_url, order_index, created_at; transcript_text chỉ owner |
+| CourseEnrollment | Không ghi | CoursePublic + enrolled_at + learning_available; khóa unpublish/archive vẫn xuất hiện cho enrolled user nhưng không thể vào học |
+| LessonWrite | title, video_url, transcript_text nullable | Lesson: id, course_id, title, status=DRAFT/PUBLISHED/ARCHIVED, normalized video_url, order_index, document_count, quiz_count, flashcard_count, can_delete, delete_blocked_reason, created_at, updated_at; transcript_text chỉ owner |
+| LessonStatus | status=PUBLISHED hoặc ARCHIVED | DRAFT→PUBLISHED→ARCHIVED; khóa Published phải còn ít nhất 1 bài PUBLISHED |
 | Document | multipart file | id, lesson_id, original_name, media_type, size_bytes, created_at; không storage_key/extracted_text |
 | QuizWrite | title, generation_id nullable | QuizAuthor: id, lesson_id, title, status, created_at, questions[] |
 | QuizDraftSave | request_id UUID, title, questions[QuestionWrite + id optional/nullable]; tối đa 200, order_index theo vị trí mảng | QuizAuthor snapshot đã lưu; một transaction, receipt V9 cho replay cùng payload/key không ghi lại |

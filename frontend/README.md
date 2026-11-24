@@ -22,6 +22,12 @@ npm run dev                  # http://localhost:5173
 | `npm run lint` | Lint (oxlint) |
 | `npm run build` | Typecheck + build ra `dist/` |
 
+## Xuất bản và lưu trữ bài học
+
+Trong **Khóa học → Bài học**, giảng viên thấy trạng thái từng bài. Khi khóa đã xuất bản, bài mới được tạo ở trạng thái **Bản nháp**. Soạn và lưu nội dung/tài liệu, chọn **Xuất bản** để học viên thấy bài mới, rồi chọn **Lưu trữ** cho bài cũ. Không thể lưu trữ bài hiển thị cuối cùng khi khóa còn đang xuất bản; cần xuất bản bài thay thế hoặc gỡ xuất bản khóa trước. Bài đã lưu trữ chỉ xem, lịch sử quiz còn nguyên. Trang soạn bài cũng có nút đổi trạng thái và yêu cầu lưu các chỉnh sửa đang chờ trước khi đổi.
+
+Khóa đã gỡ xuất bản hoặc lưu trữ vẫn có trong **Khóa học của tôi** để học viên nhận biết lịch sử ghi danh, nhưng không còn nút **Vào học**. Kết quả quiz cũ xem tại **Lịch sử làm bài**. Frontend dùng `status` của bài học và `learning_available` của khóa đã ghi danh do Java backend trả về.
+
 Khi dev, mọi request `/api/...` đi qua proxy của Vite tới backend (`http://localhost:8080`, đổi bằng biến `VITE_DEV_BACKEND`), nên không cần cấu hình CORS. Biến môi trường trong `.env.example`:
 
 - `VITE_API_BASE_URL`: gốc API, mặc định `/api/v1`.
@@ -127,8 +133,8 @@ Mỗi màn làm theo màn cùng tên trong `prototype.html` (cột Prototype: m�
 
 | Màn | Route | Prototype | Việc cần làm |
 |---|---|---|---|
-| Khóa học · Bài học | `/teaching/courses/:courseId/lessons` | `#tlessons` | Bảng bài học (#, Tên bài, Transcript, Tài liệu, Quiz, Flashcard, Thao tác), kéo thả hoặc ↑/↓ đổi thứ tự, modal Thêm bài học, xác nhận "Xóa bài học?". `GET/POST /courses/{id}/lessons`, `PATCH/DELETE /lessons/{id}`. |
-| Soạn bài học · Nội dung | `/teaching/lessons/:lessonId` | `#tlesson` | Khối Video bài học (YouTube URL + xem trước), Transcript, Tài liệu (upload PDF/TXT ≤ 10 MiB, lỗi `FILE_TOO_LARGE` / `UNSUPPORTED_FILE_TYPE`, xóa). `GET/PATCH /lessons/{id}`, `GET/POST /lessons/{id}/documents`, `DELETE /documents/{id}`. Đặt tên bài + breadcrumb (khóa học › bài) lên header bằng `usePageHeader` cho cả 3 tab. |
+| Khóa học · Bài học | `/teaching/courses/:courseId/lessons` | `#tlessons` | Bảng bài học có trạng thái, ↑/↓ đổi thứ tự, Xuất bản/Lưu trữ có xác nhận, Thêm và Xóa bài học. Khóa đã lưu trữ chỉ xem; khóa đang xuất bản không thể mất bài hiển thị cuối. `GET/POST /courses/{id}/lessons`, `PATCH /courses/{id}/lessons/order`, `PATCH /lessons/{id}/status`, `DELETE /lessons/{id}`. |
+| Soạn bài học · Nội dung | `/teaching/lessons/:lessonId` | `#tlesson` | Video YouTube, Transcript, tài liệu PDF/DOCX/TXT ≤ 10 MiB, nút trạng thái sau khi lưu nội dung. `GET/PUT /lessons/{id}`, `PATCH /lessons/{id}/status`, `GET/POST /lessons/{id}/documents`, `DELETE /documents/{id}`. Bài đã lưu trữ chỉ xem và tải tài liệu. |
 | Học bài · Tài liệu | `/learn/:courseId/lessons/:lessonId` | `#learn` | **Phần chung của trang học bài**: video YouTube (link "Mở trên YouTube" khi lỗi), danh sách bài bên cạnh, chưa ghi danh → empty "Bạn chưa ghi danh khóa học này" + Ghi danh. Làm thành `element` của route cha `/learn/:courseId/lessons/:lessonId` có `<Outlet />` để tab Quiz (người 4), Flashcard (người 5) hiện bên trong. Tab Tài liệu: danh sách + Tải xuống. `GET /lessons/{id}`, `GET /courses/{id}/lessons`, `GET /lessons/{id}/documents`, `GET /documents/{id}/content`. |
 
 ### Người 4 — Quiz, kết quả & thống kê

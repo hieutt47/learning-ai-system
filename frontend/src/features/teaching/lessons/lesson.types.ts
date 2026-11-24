@@ -1,9 +1,12 @@
 import type { Id, IsoDateTime } from '../../../shared/api/types'
 
+export type LessonStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
+
 export interface LessonListItem {
   id: Id
   courseId: Id
   title: string
+  status: LessonStatus
   videoUrl: string
   transcriptText?: string
   orderIndex: number

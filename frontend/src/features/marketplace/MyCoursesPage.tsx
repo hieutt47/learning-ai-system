@@ -82,16 +82,16 @@ export function MyCoursesPage() {
                   <Typography.Text type="secondary" style={{ fontSize: 13 }}>
                     {course.teacher.fullName}
                   </Typography.Text>
-                  {course.archivedAt ? (
+                  {!course.learningAvailable ? (
                     <Typography.Text type="warning" style={{ fontSize: 13 }}>
-                      Giảng viên đã lưu trữ khóa này. Bạn vẫn vào học và xem lại nội dung được.
+                      {course.archivedAt ? 'Giảng viên đã lưu trữ khóa này.' : 'Giảng viên đã gỡ xuất bản khóa này.'} Nội dung học tạm ngừng; kết quả quiz vẫn có trong <Link to={paths.attempts}>Lịch sử làm bài</Link>.
                     </Typography.Text>
                   ) : null}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography.Text type="secondary" style={{ fontSize: 13 }}>
                       Ghi danh {formatDate(course.enrolledAt)}
                     </Typography.Text>
-                    <StartLearningButton courseId={course.id} size="small" />
+                    {course.learningAvailable && <StartLearningButton courseId={course.id} size="small" />}
                   </div>
                 </Card>
               </Col>
