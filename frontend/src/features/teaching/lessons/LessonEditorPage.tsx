@@ -77,28 +77,30 @@ export function LessonEditorPage() {
         ? await createLesson(courseId, values)
         : await updateLesson(lessonId, values)
       let failedUpload: Error | null = null
+      const uploadedFileUids: string[] = []
       for (const item of files) {
         if (!item.originFileObj) continue
         try {
           await uploadLessonDocument(lesson.id, item.originFileObj)
+          uploadedFileUids.push(item.uid)
         } catch (error) {
           failedUpload = error instanceof Error ? error : new Error('Không tải được tài liệu.')
           break
         }
       }
-      return { lesson, failedUpload }
+      return { lesson, failedUpload, uploadedFileUids }
     },
-    onSuccess: async ({ lesson, failedUpload }) => {
+    onSuccess: async ({ lesson, failedUpload, uploadedFileUids }) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: lessonKeys.course(lesson.courseId) }),
         queryClient.invalidateQueries({ queryKey: lessonKeys.detail(lesson.id) }),
         queryClient.invalidateQueries({ queryKey: lessonKeys.documents(lesson.id) }),
         queryClient.invalidateQueries({ queryKey: ['courses'] }),
       ])
-      setFiles([])
+      setFiles((current) => current.filter((file) => !uploadedFileUids.includes(file.uid)))
       setDirty(false)
       if (failedUpload) {
-        void message.warning(`Bài học đã lưu nhưng tải tài liệu thất bại: ${failedUpload.message}. Hãy chọn lại file để thử tiếp.`)
+        void message.warning(`Bài học đã lưu nhưng tải tài liệu thất bại: ${failedUpload.message}. ${isCreating ? 'Hãy chọn lại file để thử tiếp.' : 'Các file chưa tải lên vẫn được giữ; hãy bấm Lưu thay đổi để thử lại.'}`)
       } else {
         void message.success(isCreating ? 'Đã tạo bài học.' : 'Đã lưu thay đổi.')
       }

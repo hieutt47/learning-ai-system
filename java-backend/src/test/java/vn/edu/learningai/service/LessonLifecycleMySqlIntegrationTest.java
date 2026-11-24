@@ -5,10 +5,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.mock.web.MockMultipartFile;
 import vn.edu.learningai.support.IntegrationTestBase;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -24,6 +26,37 @@ class LessonLifecycleMySqlIntegrationTest extends IntegrationTestBase {
                 .content("{\"title\":\"Bai dau tien\",\"video_url\":\"\"}"))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.status").value("PUBLISHED"));
+    }
+
+    @Test
+    void oversizedUtf8TranscriptIsRejectedBeforeWritingLesson() throws Exception {
+        long before = jdbc.sql("SELECT COUNT(*) FROM lessons WHERE course_id=2").query(Long.class).single();
+        String body = "{\"title\":\"Bai moi\",\"video_url\":\"\",\"transcript_text\":\""
+            + "😀".repeat(16384) + "\"}";
+
+        mockMvc.perform(as(post("/api/v1/courses/2/lessons"), TEACHER_A)
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        org.junit.jupiter.api.Assertions.assertEquals(before,
+            jdbc.sql("SELECT COUNT(*) FROM lessons WHERE course_id=2").query(Long.class).single());
+    }
+
+    @Test
+    void documentUploadChecksContentInsteadOfTrustingClaimedMimeType() throws Exception {
+        String authorization = "Bearer " + tokenFor(TEACHER_A);
+        mockMvc.perform(multipart("/api/v1/lessons/1/documents")
+                .file(new MockMultipartFile("file", "fake.pdf", "application/pdf",
+                    "This is plain text, not a PDF".getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                .header("Authorization", authorization))
+            .andExpect(status().isUnsupportedMediaType())
+            .andExpect(jsonPath("$.code").value("UNSUPPORTED_FILE_TYPE"));
+        mockMvc.perform(multipart("/api/v1/lessons/1/documents")
+                .file(new MockMultipartFile("file", "notes.txt", "application/octet-stream",
+                    "Valid text content".getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                .header("Authorization", authorization))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.media_type").value("text/plain"));
     }
 
     @Test
@@ -80,6 +113,8 @@ class LessonLifecycleMySqlIntegrationTest extends IntegrationTestBase {
     void archivedLessonRejectsNewQuizAccessButKeepsItsRow() throws Exception {
         jdbc.sql("INSERT INTO quizzes (id, lesson_id, title, status, created_by) VALUES (99, 1, 'Quiz cu', 'PUBLISHED', 2)")
             .update();
+        jdbc.sql("INSERT INTO quiz_attempts (id, quiz_id, student_id, status, total_questions) "
+            + "VALUES (100, 99, 4, 'IN_PROGRESS', 1)").update();
         mockMvc.perform(as(patch("/api/v1/lessons/1/status"), TEACHER_A)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"ARCHIVED\"}"))
             .andExpect(status().isOk());
@@ -87,6 +122,8 @@ class LessonLifecycleMySqlIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(as(get("/api/v1/lessons/1/quizzes"), STUDENT_A)).andExpect(status().isNotFound());
         mockMvc.perform(as(get("/api/v1/quizzes/99"), STUDENT_A)).andExpect(status().isNotFound());
         mockMvc.perform(as(post("/api/v1/quizzes/99/attempts"), STUDENT_A)).andExpect(status().isNotFound());
+        mockMvc.perform(as(get("/api/v1/attempts/100"), STUDENT_A))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("IN_PROGRESS"));
         mockMvc.perform(as(get("/api/v1/quizzes/99"), TEACHER_A)).andExpect(status().isOk());
         mockMvc.perform(as(post("/api/v1/lessons/1/quizzes"), TEACHER_A)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"Quiz moi\"}"))
@@ -96,6 +133,8 @@ class LessonLifecycleMySqlIntegrationTest extends IntegrationTestBase {
             .andExpect(jsonPath("$.quiz_count").value(0));
         org.junit.jupiter.api.Assertions.assertEquals(1L,
             jdbc.sql("SELECT COUNT(*) FROM quizzes WHERE id=99").query(Long.class).single());
+        org.junit.jupiter.api.Assertions.assertEquals(1L,
+            jdbc.sql("SELECT COUNT(*) FROM quiz_attempts WHERE id=100").query(Long.class).single());
     }
 
     @Test

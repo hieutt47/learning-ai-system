@@ -14,6 +14,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import tools.jackson.databind.json.JsonMapper;
 import vn.edu.learningai.common.enums.QuizStatus;
+import vn.edu.learningai.common.enums.LessonStatus;
 import vn.edu.learningai.common.enums.UserRole;
 import vn.edu.learningai.dto.request.CreateQuizRequest;
 import vn.edu.learningai.dto.request.UpdateQuizRequest;
@@ -201,6 +202,19 @@ class QuizServiceTest {
         assertThat(result).isInstanceOf(QuizStudentResponse.class);
         String body = JsonMapper.builder().build().writeValueAsString(result);
         assertThat(body).doesNotContain("is_correct", "explanation", "correct_option_id");
+    }
+
+    @Test
+    void archivedLessonBlocksDirectQuizReadBeforeCheckingInProgressAttempt() {
+        actor(8L, UserRole.STUDENT);
+        when(context.findLesson(10L)).thenReturn(Optional.of(
+            new QuizContextRepository.LessonContext(20L, 7L, LessonStatus.ARCHIVED)));
+        detail(QuizStatus.PUBLISHED);
+
+        fails(ErrorCode.NOT_FOUND, () -> service.get(30L));
+
+        verify(context, never()).hasInProgressAttempt(any(), any());
+        verifyNoInteractions(questions, options);
     }
 
     @Test

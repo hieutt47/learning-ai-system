@@ -1,6 +1,7 @@
 package vn.edu.learningai.service;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.tika.Tika;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,10 +25,12 @@ import vn.edu.learningai.repository.CourseRepository;
 import vn.edu.learningai.repository.UserRepository;
 
 import java.io.InputStream;
+import java.io.IOException;
 import java.security.MessageDigest;
 import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 @Service
@@ -160,7 +163,7 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
         Lesson lesson = requireManage(lessonId, userId);
         lockManageCourse(lesson.getCourseId(), userId);
         requireEditable(lesson);
-        validateDocument(file);
+        String mediaType = validateDocument(file);
         String extractedText = textExtractor.extract(file);
         String storageKey = documentStorage.newKey(file);
         documentCleanup.stageUpload(storageKey);
@@ -170,7 +173,7 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
                 .uploadedBy(userId)
                 .originalName(safeOriginalName(file))
                 .storageKey(storageKey)
-                .mediaType(file.getContentType())
+                .mediaType(mediaType)
                 .sizeBytes(file.getSize())
                 .extractedText(extractedText)
                 .contentHash(sha256(file))
@@ -343,16 +346,30 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
             document.getCreatedAt());
     }
 
-    private void validateDocument(MultipartFile file) {
+    private String validateDocument(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new ApiException(ErrorCode.VALIDATION_ERROR, "Document is empty");
         }
         if (file.getSize() > MAX_DOCUMENT_BYTES) {
             throw new ApiException(ErrorCode.FILE_TOO_LARGE);
         }
-        if (!ALLOWED_MEDIA_TYPES.contains(file.getContentType())) {
+        String name = safeOriginalName(file).toLowerCase(Locale.ROOT);
+        String detected;
+        try (InputStream input = file.getInputStream()) {
+            detected = new Tika().detect(input, name);
+        } catch (IOException exception) {
+            throw new ApiException(ErrorCode.STORAGE_ERROR, "Could not inspect document");
+        }
+        boolean extensionMatches = switch (detected) {
+            case "application/pdf" -> name.endsWith(".pdf");
+            case "text/plain" -> name.endsWith(".txt");
+            case "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> name.endsWith(".docx");
+            default -> false;
+        };
+        if (!ALLOWED_MEDIA_TYPES.contains(detected) || !extensionMatches) {
             throw new ApiException(ErrorCode.UNSUPPORTED_FILE_TYPE);
         }
+        return detected;
     }
 
     private String safeOriginalName(MultipartFile file) {

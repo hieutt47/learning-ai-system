@@ -95,16 +95,13 @@ public class QuizService {
         var lesson = lesson(quiz.getLessonId());
         boolean manager = isManager(user, lesson);
         if (!manager) {
+            requireVisibleLesson(lesson);
             if (user.getRole() == UserRole.STUDENT && quiz.getStatus() != QuizStatus.PUBLISHED
                 && !(quiz.getStatus() == QuizStatus.CLOSED
                     && contextRepository.hasInProgressAttempt(quizId, user.getId()))) {
                 throw new ApiException(ErrorCode.NOT_FOUND, "Quiz not found");
             }
             requireEnrollment(user, lesson);
-            if (lesson.status() != LessonStatus.PUBLISHED
-                && !contextRepository.hasInProgressAttempt(quizId, user.getId())) {
-                throw new ApiException(ErrorCode.NOT_FOUND, "Quiz not found");
-            }
         }
         List<Question> questions = questionRepository.findByQuizIdOrderByOrderIndexAsc(quizId);
         Map<Long, List<QuestionOption>> options = loadOptions(questions);

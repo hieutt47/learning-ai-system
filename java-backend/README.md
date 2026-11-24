@@ -18,11 +18,13 @@ Port mặc định 8080. Flyway lấy migration từ database/migrations qua Mav
 
 Giáo viên xem tất cả bài học trong khóa qua `GET /api/v1/courses/{courseId}/lessons`; học viên đã ghi danh chỉ thấy bài `PUBLISHED`. Bài mới trong khóa chưa xuất bản được tạo ở trạng thái `PUBLISHED` để có thể xuất bản khóa theo luồng hiện tại. Bài mới trong khóa đang xuất bản được tạo ở trạng thái `DRAFT`, chỉ giáo viên/admin xem được. Phản hồi bài học có trường `status`.
 
-Để thay bài cũ trong khóa đang xuất bản: tạo bài mới, thêm video/tài liệu/quiz nếu cần, gọi `PATCH /api/v1/lessons/{lessonId}/status` với `{"status":"PUBLISHED"}`, rồi gọi lại endpoint đó cho bài cũ với `{"status":"ARCHIVED"}`. Bài `ARCHIVED` biến mất khỏi danh sách học, outline công khai, API tài liệu/flashcard/quiz của học viên. Quiz và lịch sử làm bài cũ vẫn được giữ trong database; giáo viên/admin vẫn xem được bài cũ. Bài đã lưu trữ chỉ đọc, không chuyển lại trạng thái khác.
+Để thay bài cũ trong khóa đang xuất bản: tạo bài mới, thêm video/tài liệu/quiz nếu cần, gọi `PATCH /api/v1/lessons/{lessonId}/status` với `{"status":"PUBLISHED"}`, rồi gọi lại endpoint đó cho bài cũ với `{"status":"ARCHIVED"}`. Bài `ARCHIVED` biến mất khỏi danh sách học, outline công khai, API tài liệu/flashcard/quiz của học viên, kể cả khi học viên có lượt quiz đang làm. Không thể mở lại lượt đó qua API bắt đầu quiz; nếu đã tải câu hỏi trước khi bài được lưu trữ, học viên vẫn có thể nộp lượt bằng attempt ID. Quiz và lịch sử làm bài cũ vẫn được giữ trong database; giáo viên/admin vẫn xem được bài cũ. Bài đã lưu trữ chỉ đọc, không chuyển lại trạng thái khác.
 
 Thống kê `quiz_count` và tỷ lệ hoàn thành tính theo quiz thuộc các bài đang `PUBLISHED`; `submitted_attempts` vẫn là tổng lượt đã nộp trong lịch sử khóa.
 
 Khóa đang xuất bản phải luôn có ít nhất một bài `PUBLISHED`; API từ chối lưu trữ/xóa bài cuối cùng với HTTP 409. Nếu muốn bỏ toàn bộ nội dung, giáo viên có thể ngừng xuất bản hoặc lưu trữ cả khóa trước; học viên không còn mở bài/quiz bằng ID khi khóa đã ngừng xuất bản. `GET /users/me/courses` vẫn trả khóa đã ghi danh, với `learning_available=false` để giao diện không hiện nút vào học. Khóa đã lưu trữ và bài đã lưu trữ chỉ đọc đối với thao tác nội dung/quiz/flashcard. Bài có lịch sử quiz không thể xóa cứng; nên dùng `ARCHIVED`.
+
+Transcript được kiểm tra tối đa 65.535 byte UTF-8 trước khi ghi vào cột MySQL `TEXT`. Tài liệu tối đa 10 MiB; PDF, TXT và DOCX phải có phần mở rộng khớp loại file được server phát hiện từ nội dung. MIME do trình duyệt gửi không quyết định loại file lưu trong database.
 
 ## Xác minh email
 
