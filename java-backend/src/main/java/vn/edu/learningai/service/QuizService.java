@@ -47,6 +47,7 @@ public class QuizService {
     private final QuizContextRepository contextRepository;
     private final QuizMapper mapper;
     private final SecurityHelper security;
+    private final LessonAccessPolicy lessonAccessPolicy;
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public QuizAuthorResponse create(Long lessonId, CreateQuizRequest request) {
@@ -55,6 +56,7 @@ public class QuizService {
         if (!isManager(user, lesson)) {
             throw new ApiException(ErrorCode.FORBIDDEN);
         }
+        lessonAccessPolicy.assertCanManageLesson(lessonId, user.getId());
         if (request.generationId() != null) {
             validateGeneration(request.generationId(), lessonId, user.getId());
         }
@@ -304,6 +306,7 @@ public class QuizService {
         if (!isManager(user, lesson(quiz.getLessonId()))) {
             throw new ApiException(ErrorCode.FORBIDDEN);
         }
+        lessonAccessPolicy.assertCanManageLesson(quiz.getLessonId(), user.getId());
         return quiz;
     }
 

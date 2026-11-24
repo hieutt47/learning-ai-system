@@ -91,7 +91,7 @@ export function TeachingCoursesPage() {
     modal.confirm({
       title: 'Lưu trữ khóa học?',
       content:
-        'Sinh viên đã ghi danh vẫn xem lại được, nhưng khóa sẽ không còn hiển thị ở trang Khám phá.',
+        'Khóa sẽ biến mất khỏi trang Khám phá. Học viên không thể mở nội dung bài học hoặc bắt đầu quiz mới; lịch sử làm quiz vẫn được giữ.',
       okText: 'Lưu trữ',
       cancelText: 'Hủy',
       onOk: () => archiveMutation.mutateAsync(course.id),
@@ -206,7 +206,7 @@ export function TeachingCoursesPage() {
           <Card>
             <Statistic title="Khóa đang lưu trữ" value={counts.Archived} />
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              Học viên cũ vẫn vào học được
+              Đã ẩn khỏi luồng học; lịch sử quiz vẫn được giữ
             </Typography.Text>
           </Card>
         </Col>

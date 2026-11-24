@@ -22,7 +22,7 @@ Giáo viên xem tất cả bài học trong khóa qua `GET /api/v1/courses/{cour
 
 Thống kê `quiz_count` và tỷ lệ hoàn thành tính theo quiz thuộc các bài đang `PUBLISHED`; `submitted_attempts` vẫn là tổng lượt đã nộp trong lịch sử khóa.
 
-Khóa đang xuất bản phải luôn có ít nhất một bài `PUBLISHED`; API từ chối lưu trữ/xóa bài cuối cùng với HTTP 409. Nếu muốn bỏ toàn bộ nội dung, giáo viên có thể ngừng xuất bản hoặc lưu trữ cả khóa trước; học viên không còn mở bài/quiz bằng ID khi khóa đã ngừng xuất bản. Bài có lịch sử quiz không thể xóa cứng; nên dùng `ARCHIVED`.
+Khóa đang xuất bản phải luôn có ít nhất một bài `PUBLISHED`; API từ chối lưu trữ/xóa bài cuối cùng với HTTP 409. Nếu muốn bỏ toàn bộ nội dung, giáo viên có thể ngừng xuất bản hoặc lưu trữ cả khóa trước; học viên không còn mở bài/quiz bằng ID khi khóa đã ngừng xuất bản. `GET /users/me/courses` vẫn trả khóa đã ghi danh, với `learning_available=false` để giao diện không hiện nút vào học. Khóa đã lưu trữ và bài đã lưu trữ chỉ đọc đối với thao tác nội dung/quiz/flashcard. Bài có lịch sử quiz không thể xóa cứng; nên dùng `ARCHIVED`.
 
 ## Xác minh email
 

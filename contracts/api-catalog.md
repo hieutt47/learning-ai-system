@@ -37,12 +37,13 @@ Mọi route có prefix `/api/v1`. A=ADMIN, T=TEACHER, S=STUDENT, U=user active �
 | COURSE-01 | PATCH /courses/{course_id}/archive | O | Archive → CourseOwner |
 | COURSE-01 | DELETE /courses/{course_id} | O | 204; chỉ draft chưa sử dụng |
 | ENROLL-01 | POST /courses/{course_id}/enroll | S | không body → Enrollment (201/200) |
-| ENROLL-01 | GET /users/me/courses | S | Page<CourseEnrollment> |
+| ENROLL-01 | GET /users/me/courses | S | Page<CourseEnrollment>; `learning_available` cho biết có thể vào học hiện tại |
 | ENROLL-01 | GET /courses/{course_id}/members | O | Page<Member> |
-| LESSON-01 | GET /courses/{course_id}/lessons | O/E | Page<Lesson>; private |
+| LESSON-01 | GET /courses/{course_id}/lessons | O/E | Lesson[]; O thấy mọi trạng thái, E chỉ PUBLISHED của khóa đang xuất bản |
 | LESSON-01 | POST /courses/{course_id}/lessons | O | LessonWrite → Lesson (201) |
 | LESSON-01 | GET /lessons/{lesson_id} | O/E | Lesson; transcript chỉ O |
-| LESSON-01 | PATCH /lessons/{lesson_id} | O | LessonWrite → Lesson |
+| LESSON-01 | PUT /lessons/{lesson_id} | O | LessonWrite → Lesson; bài ARCHIVED chỉ đọc |
+| LESSON-01 | PATCH /lessons/{lesson_id}/status | O | `{status:"PUBLISHED"}` hoặc `{status:"ARCHIVED"}` → Lesson; DRAFT→PUBLISHED→ARCHIVED |
 | LESSON-01 | DELETE /lessons/{lesson_id} | O | 204; chưa có lịch sử |
 | LESSON-01 | POST /lessons/{lesson_id}/documents | O | multipart PDF/TXT → Document (201) |
 | LESSON-01 | GET /lessons/{lesson_id}/documents | O/E | Page<Document> |

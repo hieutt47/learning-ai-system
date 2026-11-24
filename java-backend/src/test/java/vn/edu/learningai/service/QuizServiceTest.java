@@ -52,11 +52,13 @@ class QuizServiceTest {
     @Mock QuestionOptionRepository options;
     @Mock(mockMaker = MockMakers.SUBCLASS) QuizContextRepository context;
     @Mock(mockMaker = MockMakers.SUBCLASS) SecurityHelper security;
+    @Mock LessonAccessPolicy lessonAccessPolicy;
     QuizService service;
 
     @BeforeEach
     void setUp() {
-        service = new QuizService(quizzes, questions, options, context, Mappers.getMapper(QuizMapper.class), security);
+        service = new QuizService(quizzes, questions, options, context, Mappers.getMapper(QuizMapper.class),
+            security, lessonAccessPolicy);
     }
 
     @Test

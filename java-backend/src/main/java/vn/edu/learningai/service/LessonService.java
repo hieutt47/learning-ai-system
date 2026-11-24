@@ -84,6 +84,7 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
     @Transactional
     public LessonResponse update(Long lessonId, LessonWriteRequest request, Long userId) {
         Lesson lesson = requireManage(lessonId, userId);
+        lockManageCourse(lesson.getCourseId(), userId);
         requireEditable(lesson);
         lesson.updateContent(request.title(), request.videoUrl(), request.transcriptText());
         return toResponse(lesson, true);
@@ -109,7 +110,7 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
 
     @Transactional
     public List<LessonResponse> reorder(Long courseId, LessonReorderRequest request, Long userId) {
-        assertCanManageCourse(courseId, userId);
+        lockManageCourse(courseId, userId);
         List<Lesson> lessons = lessonRepository.findByCourseIdForUpdate(courseId);
         List<Long> requestedIds = request.lessonIds();
         Set<Long> existingIds = lessons.stream().map(Lesson::getId).collect(java.util.stream.Collectors.toSet());
@@ -133,6 +134,7 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
     public void delete(Long lessonId, Long userId) {
         Lesson lesson = requireManage(lessonId, userId);
         Course course = lockManageCourse(lesson.getCourseId(), userId);
+        requireEditable(lesson);
         requireAnotherPublishedLesson(lesson, course);
         if (lessonRepository.countQuizAttempts(lessonId) > 0) {
             throw new ApiException(ErrorCode.LESSON_DELETE_BLOCKED);
@@ -155,7 +157,9 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
 
     @Transactional
     public LessonDocumentResponse uploadDocument(Long lessonId, MultipartFile file, Long userId) {
-        requireEditable(requireManage(lessonId, userId));
+        Lesson lesson = requireManage(lessonId, userId);
+        lockManageCourse(lesson.getCourseId(), userId);
+        requireEditable(lesson);
         validateDocument(file);
         String extractedText = textExtractor.extract(file);
         String storageKey = documentStorage.newKey(file);
@@ -188,7 +192,9 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
     public void deleteDocument(Long documentId, Long userId) {
         LessonDocument document = documentRepository.findById(documentId)
             .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Document not found"));
-        requireEditable(requireManage(document.getLessonId(), userId));
+        Lesson lesson = requireManage(document.getLessonId(), userId);
+        lockManageCourse(lesson.getCourseId(), userId);
+        requireEditable(lesson);
         documentCleanup.afterCommit(document.getStorageKey());
         documentRepository.delete(document);
     }
@@ -196,7 +202,7 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
     @Override
     @Transactional(readOnly = true)
     public void assertCanManageLesson(Long lessonId, Long userId) {
-        requireManage(lessonId, userId);
+        requireEditable(requireManage(lessonId, userId));
     }
 
     @Override
@@ -244,16 +250,10 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
         if (!isAdmin(userId) && lessonRepository.countCourseOwner(lesson.getCourseId(), userId) == 0) {
             throw new ApiException(ErrorCode.FORBIDDEN);
         }
+        Course course = courseRepository.findById(lesson.getCourseId())
+            .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Course not found"));
+        requireActiveCourse(course);
         return lesson;
-    }
-
-    private void assertCanManageCourse(Long courseId, Long userId) {
-        if (lessonRepository.countCourse(courseId) == 0) {
-            throw new ApiException(ErrorCode.NOT_FOUND, "Course not found");
-        }
-        if (!isAdmin(userId) && lessonRepository.countCourseOwner(courseId, userId) == 0) {
-            throw new ApiException(ErrorCode.FORBIDDEN);
-        }
     }
 
     private Course lockManageCourse(Long courseId, Long userId) {
@@ -262,7 +262,14 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
         if (!isAdmin(userId) && lessonRepository.countCourseOwner(courseId, userId) == 0) {
             throw new ApiException(ErrorCode.FORBIDDEN);
         }
+        requireActiveCourse(course);
         return course;
+    }
+
+    private void requireActiveCourse(Course course) {
+        if (course.getArchivedAt() != null) {
+            throw new ApiException(ErrorCode.INVALID_STATE, "Archived course is read-only");
+        }
     }
 
     private void requireAnotherPublishedLesson(Lesson lesson, Course course) {
@@ -309,14 +316,16 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
     }
 
     private LessonResponse toResponse(Lesson lesson, boolean includeTranscript) {
+        boolean archived = lesson.getStatus() == LessonStatus.ARCHIVED;
         boolean hasHistory = lessonRepository.countQuizAttempts(lesson.getId()) > 0;
         long quizCount = lessonRepository.countQuizzes(lesson.getId());
         long flashcardCount = lessonRepository.countFlashcards(lesson.getId());
         boolean lastPublished = lesson.getStatus() == LessonStatus.PUBLISHED
             && courseRepository.findById(lesson.getCourseId()).map(Course::getIsPublished).orElse(false)
             && lessonRepository.countByCourseIdAndStatus(lesson.getCourseId(), LessonStatus.PUBLISHED) <= 1;
-        boolean blocked = hasHistory || quizCount > 0 || flashcardCount > 0 || lastPublished;
-        String reason = hasHistory ? "Bài học đã có lịch sử làm quiz."
+        boolean blocked = archived || hasHistory || quizCount > 0 || flashcardCount > 0 || lastPublished;
+        String reason = archived ? "Bài học đã lưu trữ, chỉ có thể xem."
+            : hasHistory ? "Bài học đã có lịch sử làm quiz."
             : quizCount > 0 || flashcardCount > 0 ? "Xóa quiz và flashcard trước khi xóa bài học."
             : lastPublished ? "Khóa đang xuất bản cần ít nhất một bài học hiển thị." : null;
         String transcript = includeTranscript ? lesson.getTranscriptText() : null;
