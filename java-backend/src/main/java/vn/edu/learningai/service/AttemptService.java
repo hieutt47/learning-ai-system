@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.learningai.common.enums.AttemptStatus;
 import vn.edu.learningai.common.enums.QuizStatus;
+import vn.edu.learningai.common.enums.LessonStatus;
 import vn.edu.learningai.common.enums.UserRole;
 import vn.edu.learningai.dto.request.SubmitAttemptRequest;
 import vn.edu.learningai.dto.response.AttemptResponse;
@@ -77,6 +78,9 @@ public class AttemptService {
             quizId, student.getId(), AttemptStatus.IN_PROGRESS);
         if (existing.isPresent()) {
             return new StartResult(toAttempt(existing.get()), false);
+        }
+        if (lesson.status() != LessonStatus.PUBLISHED) {
+            throw new ApiException(ErrorCode.NOT_FOUND, "Lesson not found");
         }
         if (quiz.getStatus() != QuizStatus.PUBLISHED) {
             throw new ApiException(ErrorCode.INVALID_STATE, "Only PUBLISHED quizzes can start new attempts");

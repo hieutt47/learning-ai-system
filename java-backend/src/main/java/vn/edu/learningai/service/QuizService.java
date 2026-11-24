@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Isolation;
 import vn.edu.learningai.common.enums.QuizStatus;
+import vn.edu.learningai.common.enums.LessonStatus;
 import vn.edu.learningai.common.enums.UserRole;
 import vn.edu.learningai.dto.request.CreateQuizRequest;
 import vn.edu.learningai.dto.request.UpdateQuizRequest;
@@ -72,6 +73,7 @@ public class QuizService {
         boolean manager = isManager(user, lesson);
         if (!manager) {
             requireEnrollment(user, lesson);
+            requireVisibleLesson(lesson);
         }
         var pageable = PageRequest.of(page - 1, pageSize, Sort.by(Sort.Direction.DESC, "createdAt", "id"));
         var quizzes = manager ? quizRepository.findByLessonId(lessonId, pageable)
@@ -97,6 +99,10 @@ public class QuizService {
                 throw new ApiException(ErrorCode.NOT_FOUND, "Quiz not found");
             }
             requireEnrollment(user, lesson);
+            if (lesson.status() != LessonStatus.PUBLISHED
+                && !contextRepository.hasInProgressAttempt(quizId, user.getId())) {
+                throw new ApiException(ErrorCode.NOT_FOUND, "Quiz not found");
+            }
         }
         List<Question> questions = questionRepository.findByQuizIdOrderByOrderIndexAsc(quizId);
         Map<Long, List<QuestionOption>> options = loadOptions(questions);
@@ -317,6 +323,12 @@ public class QuizService {
         }
         if (!contextRepository.isEnrolled(lesson.courseId(), user.getId())) {
             throw new ApiException(ErrorCode.ENROLLMENT_REQUIRED);
+        }
+    }
+
+    private void requireVisibleLesson(QuizContextRepository.LessonContext lesson) {
+        if (lesson.status() != LessonStatus.PUBLISHED) {
+            throw new ApiException(ErrorCode.NOT_FOUND, "Lesson not found");
         }
     }
 

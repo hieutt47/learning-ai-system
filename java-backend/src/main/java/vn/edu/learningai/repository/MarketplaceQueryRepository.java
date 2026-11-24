@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 import vn.edu.learningai.entity.Course;
+import vn.edu.learningai.common.enums.LessonStatus;
 
 import java.util.HashMap;
 import java.util.List;
@@ -50,8 +51,9 @@ public class MarketplaceQueryRepository {
     public List<LessonOutlineRow> findOutline(Long courseId) {
         return entityManager.createQuery(
                 "SELECT l.id, l.title, l.orderIndex FROM Lesson l "
-                    + "WHERE l.courseId = :courseId ORDER BY l.orderIndex ASC", Object[].class)
+                    + "WHERE l.courseId = :courseId AND l.status = :status ORDER BY l.orderIndex ASC", Object[].class)
             .setParameter("courseId", courseId)
+            .setParameter("status", LessonStatus.PUBLISHED)
             .getResultList().stream()
             .map(row -> new LessonOutlineRow((Long) row[0], (String) row[1], (Integer) row[2]))
             .toList();

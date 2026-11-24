@@ -83,6 +83,19 @@ class StatisticsMySqlIntegrationTest {
             .andExpect(jsonPath("$.average_score").value(org.hamcrest.Matchers.nullValue()))
             .andExpect(jsonPath("$.best_scores").isEmpty()).andExpect(jsonPath("$.hardest_questions").isEmpty());
     }
+    @Test void averageScoreRoundsAllSubmittedAttemptsToTwoDecimals() throws Exception {
+        seed();
+        jdbc.sql("""
+            INSERT INTO quiz_attempts(id,quiz_id,student_id,status,total_questions,score,correct_count,submitted_at)
+            VALUES(54,30,6,'SUBMITTED',1,0,0,UTC_TIMESTAMP())
+            """).update();
+        String teacher = token("teacher.a@test.local");
+        mvc.perform(get("/api/v1/statistics/quizzes/30").header("Authorization", "Bearer " + teacher))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.submitted_attempts").value(3))
+            .andExpect(jsonPath("$.unique_students").value(2))
+            .andExpect(jsonPath("$.average_score").value(33.33));
+    }
     @Test void statisticsEnforceOwnershipAndAdmin() throws Exception {
         seed();
         mvc.perform(get("/api/v1/statistics/courses/2")).andExpect(status().isUnauthorized());

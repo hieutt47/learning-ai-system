@@ -3,11 +3,13 @@ package vn.edu.learningai.dto.response;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.Instant;
+import vn.edu.learningai.common.enums.LessonStatus;
 
 public record LessonResponse(
     Long id,
     @JsonProperty("course_id") Long courseId,
     String title,
+    LessonStatus status,
     @JsonProperty("video_url") String videoUrl,
     @JsonProperty("transcript_text") String transcriptText,
     @JsonProperty("order_index") Integer orderIndex,

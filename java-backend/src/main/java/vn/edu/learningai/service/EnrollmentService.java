@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.learningai.common.enums.UserRole;
+import vn.edu.learningai.common.enums.LessonStatus;
 import vn.edu.learningai.dto.response.CourseEnrollmentResponse;
 import vn.edu.learningai.dto.response.CoursePublicResponse;
 import vn.edu.learningai.dto.response.EnrollmentResponse;
@@ -106,7 +107,7 @@ public class EnrollmentService {
             .price(course.getPrice())
             .currency(CURRENCY)
             .totalStudents(marketplaceQueryRepository.countEnrollments(course.getId()))
-            .lessonCount((int) lessonRepository.countByCourseId(course.getId()))
+            .lessonCount((int) lessonRepository.countByCourseIdAndStatus(course.getId(), LessonStatus.PUBLISHED))
             .archivedAt(course.getArchivedAt())
             .build();
     }

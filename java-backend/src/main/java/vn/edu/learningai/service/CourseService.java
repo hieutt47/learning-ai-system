@@ -25,6 +25,8 @@ import vn.edu.learningai.repository.UserRepository;
 import vn.edu.learningai.security.AuthenticatedUser;
 import vn.edu.learningai.storage.StoredFile;
 
+import java.math.BigDecimal;
+
 @Service
 @RequiredArgsConstructor
 public class CourseService {
@@ -59,7 +61,13 @@ public class CourseService {
 
     @Transactional
     public CourseOwnerResponse update(Long id, CoursePatchRequest request, AuthenticatedUser actor) {
-        Course course = getManageableCourse(id, actor);
+        Course course = courseOwnership.requireTeacherOwnerForUpdate(id, actor);
+
+        if (Boolean.TRUE.equals(course.getIsPublished()) && request.getPrice() != null
+            && request.getPrice().compareTo(BigDecimal.ZERO) > 0) {
+            throw new ApiException(ErrorCode.COURSE_NOT_FREE,
+                "Unpublish the course before setting a paid price");
+        }
 
         if (request.getTitle() != null) {
             course.setTitle(request.getTitle());
@@ -123,6 +131,7 @@ public class CourseService {
         courseRepository.delete(course);
         thumbnailService.deleteAfterCommit(course.getThumbnailStorageKey());
     }
+
     private Course getManageableCourse(Long id, AuthenticatedUser actor) {
         return courseOwnership.requireTeacherOwner(id, actor);
     }
@@ -131,11 +140,13 @@ public class CourseService {
         return categoryRepository.findById(categoryId)
             .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Category not found"));
     }
+
     private void requireTeacher(AuthenticatedUser actor) {
         if (actor.role() != vn.edu.learningai.common.enums.UserRole.TEACHER) {
             throw new ApiException(ErrorCode.FORBIDDEN, "Only teachers can manage courses");
         }
     }
+
     private Sort defaultSort() {
         return Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"));
     }

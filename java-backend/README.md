@@ -14,6 +14,16 @@ Backend đọc biến môi trường của tiến trình, không tự nạp .env
 
 Port mặc định 8080. Flyway lấy migration từ database/migrations qua Maven resources; Hibernate dùng ddl-auto=validate. Seed demo trong database/seeds chạy sau migration.
 
+## Vòng đời bài học (Java backend)
+
+Giáo viên xem tất cả bài học trong khóa qua `GET /api/v1/courses/{courseId}/lessons`; học viên đã ghi danh chỉ thấy bài `PUBLISHED`. Bài mới trong khóa chưa xuất bản được tạo ở trạng thái `PUBLISHED` để có thể xuất bản khóa theo luồng hiện tại. Bài mới trong khóa đang xuất bản được tạo ở trạng thái `DRAFT`, chỉ giáo viên/admin xem được. Phản hồi bài học có trường `status`.
+
+Để thay bài cũ trong khóa đang xuất bản: tạo bài mới, thêm video/tài liệu/quiz nếu cần, gọi `PATCH /api/v1/lessons/{lessonId}/status` với `{"status":"PUBLISHED"}`, rồi gọi lại endpoint đó cho bài cũ với `{"status":"ARCHIVED"}`. Bài `ARCHIVED` biến mất khỏi danh sách học, outline công khai, API tài liệu/flashcard/quiz của học viên. Quiz và lịch sử làm bài cũ vẫn được giữ trong database; giáo viên/admin vẫn xem được bài cũ. Bài đã lưu trữ chỉ đọc, không chuyển lại trạng thái khác.
+
+Thống kê `quiz_count` và tỷ lệ hoàn thành tính theo quiz thuộc các bài đang `PUBLISHED`; `submitted_attempts` vẫn là tổng lượt đã nộp trong lịch sử khóa.
+
+Khóa đang xuất bản phải luôn có ít nhất một bài `PUBLISHED`; API từ chối lưu trữ/xóa bài cuối cùng với HTTP 409. Nếu muốn bỏ toàn bộ nội dung, giáo viên có thể ngừng xuất bản hoặc lưu trữ cả khóa trước; học viên không còn mở bài/quiz bằng ID khi khóa đã ngừng xuất bản. Bài có lịch sử quiz không thể xóa cứng; nên dùng `ARCHIVED`.
+
 ## Xác minh email
 
 V4 thêm users.email_verified_at và email_verification_tokens. User đã tồn tại trước migration được đánh dấu đã xác minh; đăng ký mới cần mở link email và xác nhận trước khi đăng nhập. Seed demo có email_verified_at.
@@ -45,3 +55,5 @@ POST /api/v1/auth/reset-password nhận token và new_password dài 10–72 ký 
 ```
 
 Cấu hình mặc định loại nhóm integration dùng MySQL. Test xác minh email và quên mật khẩu dùng mail sender giả, không gửi email thật. Test API quên mật khẩu chạy qua SecurityFilterChain thực với service giả. Chỉ chạy integration trên database test riêng.
+
+Kiểm thử vòng đời bài học trên database test riêng: `./mvnw -Dtest=LessonLifecycleMySqlIntegrationTest -Dsurefire.excludedGroups= test` (cần `DBMS_TEST_CONNECTION`, `DBMS_TEST_USERNAME`, `DBMS_TEST_PASSWORD`, `MAIL_USERNAME`, `MAIL_PASSWORD`).

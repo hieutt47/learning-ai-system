@@ -6,18 +6,21 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import vn.edu.learningai.common.enums.SourceType;
+import vn.edu.learningai.common.enums.LessonStatus;
 import vn.edu.learningai.common.enums.UserRole;
 import vn.edu.learningai.dto.request.LessonReorderRequest;
 import vn.edu.learningai.dto.request.LessonWriteRequest;
 import vn.edu.learningai.dto.response.LessonDocumentResponse;
 import vn.edu.learningai.dto.response.LessonResponse;
 import vn.edu.learningai.entity.Lesson;
+import vn.edu.learningai.entity.Course;
 import vn.edu.learningai.entity.LessonDocument;
 import vn.edu.learningai.entity.User;
 import vn.edu.learningai.exception.ApiException;
 import vn.edu.learningai.exception.ErrorCode;
 import vn.edu.learningai.repository.LessonDocumentRepository;
 import vn.edu.learningai.repository.LessonRepository;
+import vn.edu.learningai.repository.CourseRepository;
 import vn.edu.learningai.repository.UserRepository;
 
 import java.io.InputStream;
@@ -38,6 +41,7 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
     );
 
     private final LessonRepository lessonRepository;
+    private final CourseRepository courseRepository;
     private final LessonDocumentRepository documentRepository;
     private final UserRepository userRepository;
     private final DocumentStorage documentStorage;
@@ -47,14 +51,17 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
     @Transactional(readOnly = true)
     public List<LessonResponse> listForCourse(Long courseId, Long userId) {
         boolean includeTranscript = assertCanViewCourse(courseId, userId) == LessonViewAccess.MANAGER;
-        return lessonRepository.findByCourseIdOrderByOrderIndexAsc(courseId).stream()
+        List<Lesson> lessons = includeTranscript
+            ? lessonRepository.findByCourseIdOrderByOrderIndexAsc(courseId)
+            : lessonRepository.findByCourseIdAndStatusOrderByOrderIndexAsc(courseId, LessonStatus.PUBLISHED);
+        return lessons.stream()
             .map(lesson -> toResponse(lesson, includeTranscript))
             .toList();
     }
 
     @Transactional
     public LessonResponse create(Long courseId, LessonWriteRequest request, Long userId) {
-        assertCanManageCourse(courseId, userId);
+        Course course = lockManageCourse(courseId, userId);
         List<Lesson> lessons = lessonRepository.findByCourseIdForUpdate(courseId);
         Lesson lesson = Lesson.builder()
             .courseId(courseId)
@@ -62,6 +69,7 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
             .videoUrl(request.videoUrl() == null ? "" : request.videoUrl().trim())
             .transcriptText(normalizeText(request.transcriptText()))
             .orderIndex(lessons.size() + 1)
+            .status(Boolean.TRUE.equals(course.getIsPublished()) ? LessonStatus.DRAFT : LessonStatus.PUBLISHED)
             .build();
         return toResponse(lessonRepository.save(lesson), true);
     }
@@ -76,7 +84,26 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
     @Transactional
     public LessonResponse update(Long lessonId, LessonWriteRequest request, Long userId) {
         Lesson lesson = requireManage(lessonId, userId);
+        requireEditable(lesson);
         lesson.updateContent(request.title(), request.videoUrl(), request.transcriptText());
+        return toResponse(lesson, true);
+    }
+
+    @Transactional
+    public LessonResponse changeStatus(Long lessonId, LessonStatus status, Long userId) {
+        Lesson lesson = requireManage(lessonId, userId);
+        Course course = lockManageCourse(lesson.getCourseId(), userId);
+        if (lesson.getStatus() == status) {
+            return toResponse(lesson, true);
+        }
+        if (lesson.getStatus() == LessonStatus.DRAFT && status == LessonStatus.PUBLISHED) {
+            lesson.changeStatus(status);
+        } else if (lesson.getStatus() == LessonStatus.PUBLISHED && status == LessonStatus.ARCHIVED) {
+            requireAnotherPublishedLesson(lesson, course);
+            lesson.changeStatus(status);
+        } else {
+            throw new ApiException(ErrorCode.INVALID_STATE, "Allowed transitions: DRAFT to PUBLISHED, PUBLISHED to ARCHIVED");
+        }
         return toResponse(lesson, true);
     }
 
@@ -105,6 +132,8 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
     @Transactional
     public void delete(Long lessonId, Long userId) {
         Lesson lesson = requireManage(lessonId, userId);
+        Course course = lockManageCourse(lesson.getCourseId(), userId);
+        requireAnotherPublishedLesson(lesson, course);
         if (lessonRepository.countQuizAttempts(lessonId) > 0) {
             throw new ApiException(ErrorCode.LESSON_DELETE_BLOCKED);
         }
@@ -126,7 +155,7 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
 
     @Transactional
     public LessonDocumentResponse uploadDocument(Long lessonId, MultipartFile file, Long userId) {
-        requireManage(lessonId, userId);
+        requireEditable(requireManage(lessonId, userId));
         validateDocument(file);
         String extractedText = textExtractor.extract(file);
         String storageKey = documentStorage.newKey(file);
@@ -159,7 +188,7 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
     public void deleteDocument(Long documentId, Long userId) {
         LessonDocument document = documentRepository.findById(documentId)
             .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Document not found"));
-        requireManage(document.getLessonId(), userId);
+        requireEditable(requireManage(document.getLessonId(), userId));
         documentCleanup.afterCommit(document.getStorageKey());
         documentRepository.delete(document);
     }
@@ -179,6 +208,9 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
             return LessonViewAccess.MANAGER;
         }
         if (role == UserRole.STUDENT && lessonRepository.countCourseMember(lesson.getCourseId(), userId) > 0) {
+            if (lesson.getStatus() != LessonStatus.PUBLISHED) {
+                throw new ApiException(ErrorCode.NOT_FOUND, "Lesson not found");
+            }
             return LessonViewAccess.ENROLLED_STUDENT;
         }
         throw new ApiException(role == UserRole.STUDENT ? ErrorCode.ENROLLMENT_REQUIRED : ErrorCode.FORBIDDEN);
@@ -224,6 +256,29 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
         }
     }
 
+    private Course lockManageCourse(Long courseId, Long userId) {
+        Course course = courseRepository.findByIdForUpdate(courseId)
+            .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Course not found"));
+        if (lessonRepository.countCourseOwner(courseId, userId) == 0) {
+            throw new ApiException(ErrorCode.FORBIDDEN);
+        }
+        return course;
+    }
+
+    private void requireAnotherPublishedLesson(Lesson lesson, Course course) {
+        if (lesson.getStatus() == LessonStatus.PUBLISHED && Boolean.TRUE.equals(course.getIsPublished())
+            && lessonRepository.countByCourseIdAndStatus(course.getId(), LessonStatus.PUBLISHED) <= 1) {
+            throw new ApiException(ErrorCode.INVALID_STATE,
+                "Publish a replacement lesson or unpublish the course first");
+        }
+    }
+
+    private void requireEditable(Lesson lesson) {
+        if (lesson.getStatus() == LessonStatus.ARCHIVED) {
+            throw new ApiException(ErrorCode.INVALID_STATE, "Archived lesson is read-only");
+        }
+    }
+
     private LessonViewAccess assertCanViewCourse(Long courseId, Long userId) {
         if (lessonRepository.countCourse(courseId) == 0) {
             throw new ApiException(ErrorCode.NOT_FOUND, "Course not found");
@@ -250,13 +305,22 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
     }
 
     private LessonResponse toResponse(Lesson lesson, boolean includeTranscript) {
-        boolean blocked = lessonRepository.countQuizAttempts(lesson.getId()) > 0;
+        boolean hasHistory = lessonRepository.countQuizAttempts(lesson.getId()) > 0;
+        long quizCount = lessonRepository.countQuizzes(lesson.getId());
+        long flashcardCount = lessonRepository.countFlashcards(lesson.getId());
+        boolean lastPublished = lesson.getStatus() == LessonStatus.PUBLISHED
+            && courseRepository.findById(lesson.getCourseId()).map(Course::getIsPublished).orElse(false)
+            && lessonRepository.countByCourseIdAndStatus(lesson.getCourseId(), LessonStatus.PUBLISHED) <= 1;
+        boolean blocked = hasHistory || quizCount > 0 || flashcardCount > 0 || lastPublished;
+        String reason = hasHistory ? "Bài học đã có lịch sử làm quiz."
+            : quizCount > 0 || flashcardCount > 0 ? "Xóa quiz và flashcard trước khi xóa bài học."
+            : lastPublished ? "Khóa đang xuất bản cần ít nhất một bài học hiển thị." : null;
         String transcript = includeTranscript ? lesson.getTranscriptText() : null;
         return new LessonResponse(
-            lesson.getId(), lesson.getCourseId(), lesson.getTitle(), lesson.getVideoUrl(), transcript,
+            lesson.getId(), lesson.getCourseId(), lesson.getTitle(), lesson.getStatus(), lesson.getVideoUrl(), transcript,
             lesson.getOrderIndex(), documentRepository.countByLessonId(lesson.getId()),
-            lessonRepository.countQuizzes(lesson.getId()), lessonRepository.countFlashcards(lesson.getId()),
-            !blocked, blocked ? "Bài học đã có lịch sử làm quiz." : null, lesson.getCreatedAt(), lesson.getUpdatedAt()
+            quizCount, flashcardCount,
+            !blocked, reason, lesson.getCreatedAt(), lesson.getUpdatedAt()
         );
     }
 

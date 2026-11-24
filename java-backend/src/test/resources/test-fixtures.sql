@@ -39,10 +39,10 @@ INSERT INTO courses (id, teacher_id, category_id, title, description, price, is_
     -- "published" alone is not a sufficient filter.
     (5, 3, 1, 'Khoa da archive',    'Mo ta', 0.00, TRUE, CURRENT_TIMESTAMP(6));
 
-INSERT INTO lessons (id, course_id, title, video_url, transcript_text, order_index) VALUES
-    (1, 2, 'Bai 1: Gioi thieu', 'https://youtu.be/secret-a1', 'transcript bi mat 1', 1),
-    (2, 2, 'Bai 2: Cai dat',    'https://youtu.be/secret-a2', 'transcript bi mat 2', 2),
-    (3, 4, 'Bai 1: SELECT',     'https://youtu.be/secret-b1', NULL, 1);
+INSERT INTO lessons (id, course_id, title, video_url, transcript_text, order_index, status) VALUES
+    (1, 2, 'Bai 1: Gioi thieu', 'https://youtu.be/secret-a1', 'transcript bi mat 1', 1, 'PUBLISHED'),
+    (2, 2, 'Bai 2: Cai dat',    'https://youtu.be/secret-a2', 'transcript bi mat 2', 2, 'PUBLISHED'),
+    (3, 4, 'Bai 1: SELECT',     'https://youtu.be/secret-b1', NULL, 1, 'PUBLISHED');
 
 INSERT INTO course_members (course_id, student_id) VALUES
     (2, 4),

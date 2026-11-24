@@ -11,6 +11,7 @@ import org.springframework.util.StringUtils;
 import vn.edu.learningai.dto.response.CoursePublicResponse;
 import vn.edu.learningai.dto.response.PageResponse;
 import vn.edu.learningai.entity.Course;
+import vn.edu.learningai.common.enums.LessonStatus;
 import vn.edu.learningai.exception.ApiException;
 import vn.edu.learningai.exception.ErrorCode;
 import vn.edu.learningai.repository.CategoryRepository;
@@ -50,7 +51,8 @@ public class MarketplaceService {
             marketplaceQueryRepository.searchPublished(normalizedQuery, categoryId, pageable);
         List<Long> courseIds = courses.getContent().stream().map(Course::getId).toList();
         Map<Long, Long> enrollmentCounts = marketplaceQueryRepository.countEnrollments(courseIds);
-        Map<Long, Long> lessonCounts = lessonRepository.countByCourseIds(courseIds).stream()
+        Map<Long, Long> lessonCounts = courseIds.isEmpty() ? Map.of()
+            : lessonRepository.countByCourseIdsAndStatus(courseIds, LessonStatus.PUBLISHED).stream()
             .collect(java.util.stream.Collectors.toMap(
                 vn.edu.learningai.repository.CourseCountRow::courseId,
                 vn.edu.learningai.repository.CourseCountRow::total));
