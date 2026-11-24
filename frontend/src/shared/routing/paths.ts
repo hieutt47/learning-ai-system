@@ -34,6 +34,11 @@ export const paths = {
   adminTeacherRequests: '/admin/teacher-requests',
   adminCategories: '/admin/categories',
   adminCourses: '/admin/courses',
+  adminCourse: (courseId: Id) => `/admin/courses/${courseId}`,
+  adminCourseLesson: (courseId: Id, lessonId: Id) => `/admin/courses/${courseId}/lessons/${lessonId}`,
+  adminCourseLessonQuizzes: (courseId: Id, lessonId: Id) =>
+    `/admin/courses/${courseId}/lessons/${lessonId}/quizzes`,
+  adminCourseLessonAi: (courseId: Id, lessonId: Id) => `/admin/courses/${courseId}/lessons/${lessonId}/ai`,
   adminStatistics: '/admin/statistics',
 } as const
 export function homePathFor(role: ViewerRole): string {
