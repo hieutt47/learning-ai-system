@@ -25,7 +25,9 @@ public class CoursePublicationService {
     private final CourseOwnership courseOwnership;
     @Transactional
     public CourseOwnerResponse setPublished(Long courseId, boolean publish, AuthenticatedUser actor) {
-        Course course = courseOwnership.requireOwned(courseId, actor);
+        Course course = publish
+            ? courseOwnership.requireTeacherOwner(courseId, actor)
+            : courseOwnership.requireCanUnpublish(courseId, actor);
         if (publish) {
             if (course.getArchivedAt() != null) {
                 throw new ApiException(ErrorCode.INVALID_STATE, "Archived courses cannot be published");
@@ -42,7 +44,7 @@ public class CoursePublicationService {
     }
     @Transactional
     public CourseOwnerResponse archive(Long courseId, AuthenticatedUser actor) {
-        Course course = courseOwnership.requireOwned(courseId, actor);
+        Course course = courseOwnership.requireTeacherOwner(courseId, actor);
         if (course.getArchivedAt() != null) {
             return courseOwnerAssembler.toResponse(course);
         }

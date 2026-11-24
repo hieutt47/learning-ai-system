@@ -39,7 +39,7 @@ public class CourseService {
 
     @Transactional
     public CourseOwnerResponse create(CourseWriteRequest request, AuthenticatedUser actor) {
-        requireTeacherOrAdmin(actor);
+        requireTeacher(actor);
 
         User teacher = userRepository.findById(actor.userId())
             .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED, "User not found"));
@@ -59,7 +59,7 @@ public class CourseService {
 
     @Transactional
     public CourseOwnerResponse update(Long id, CoursePatchRequest request, AuthenticatedUser actor) {
-        Course course = getOwnedCourse(id, actor);
+        Course course = getManageableCourse(id, actor);
 
         if (request.getTitle() != null) {
             course.setTitle(request.getTitle());
@@ -94,12 +94,12 @@ public class CourseService {
 
     @Transactional(readOnly = true)
     public CourseOwnerResponse getOwned(Long id, AuthenticatedUser actor) {
-        return courseOwnerAssembler.toResponse(getOwnedCourse(id, actor));
+        return courseOwnerAssembler.toResponse(courseOwnership.requireViewable(id, actor));
     }
 
     @Transactional
     public CourseOwnerResponse updateThumbnail(Long id, MultipartFile file, AuthenticatedUser actor) {
-        Course course = getOwnedCourse(id, actor);
+        Course course = getManageableCourse(id, actor);
         StoredFile stored = thumbnailService.store(file);
         String previousKey = course.getThumbnailStorageKey();
         course.setThumbnailStorageKey(stored.storageKey());
@@ -112,7 +112,7 @@ public class CourseService {
 
     @Transactional
     public void delete(Long id, AuthenticatedUser actor) {
-        Course course = getOwnedCourse(id, actor);
+        Course course = getManageableCourse(id, actor);
 
         if (Boolean.TRUE.equals(course.getIsPublished()) || course.getArchivedAt() != null) {
             throw new ApiException(ErrorCode.INVALID_STATE, "Only draft courses can be deleted");
@@ -123,16 +123,16 @@ public class CourseService {
         courseRepository.delete(course);
         thumbnailService.deleteAfterCommit(course.getThumbnailStorageKey());
     }
-    private Course getOwnedCourse(Long id, AuthenticatedUser actor) {
-        return courseOwnership.requireOwned(id, actor);
+    private Course getManageableCourse(Long id, AuthenticatedUser actor) {
+        return courseOwnership.requireTeacherOwner(id, actor);
     }
 
     private Category requireCategory(Long categoryId) {
         return categoryRepository.findById(categoryId)
             .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Category not found"));
     }
-    private void requireTeacherOrAdmin(AuthenticatedUser actor) {
-        if (!actor.isTeacherOrAdmin()) {
+    private void requireTeacher(AuthenticatedUser actor) {
+        if (actor.role() != vn.edu.learningai.common.enums.UserRole.TEACHER) {
             throw new ApiException(ErrorCode.FORBIDDEN, "Only teachers can manage courses");
         }
     }

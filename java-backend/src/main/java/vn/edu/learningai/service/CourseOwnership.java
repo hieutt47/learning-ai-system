@@ -8,16 +8,46 @@ import vn.edu.learningai.exception.ErrorCode;
 import vn.edu.learningai.repository.CourseRepository;
 import vn.edu.learningai.security.AuthenticatedUser;
 
+/**
+ * Quyền trên một khóa học.
+ *
+ * ADMIN chỉ được xem và gỡ xuất bản; các thao tác ghi (tạo, sửa, xóa, lưu trữ,
+ * thumbnail, bài học) chỉ thuộc giảng viên sở hữu khóa.
+ */
 @Component
 @RequiredArgsConstructor
 public class CourseOwnership {
     private final CourseRepository courseRepository;
-    public Course requireOwned(Long courseId, AuthenticatedUser actor) {
-        Course course = courseRepository.findById(courseId)
-            .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Course not found"));
-        if (!actor.isAdmin() && !course.getTeacher().getId().equals(actor.userId())) {
+
+    /** Giảng viên sở hữu khóa hoặc ADMIN — dùng cho API đọc. */
+    public Course requireViewable(Long courseId, AuthenticatedUser actor) {
+        Course course = find(courseId);
+        if (!actor.isAdmin() && !isOwner(course, actor)) {
             throw new ApiException(ErrorCode.FORBIDDEN, "Not the course owner");
         }
         return course;
+    }
+
+    /** Chỉ giảng viên sở hữu khóa — dùng cho mọi thao tác ghi. */
+    public Course requireTeacherOwner(Long courseId, AuthenticatedUser actor) {
+        Course course = find(courseId);
+        if (!isOwner(course, actor)) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "Not the course owner");
+        }
+        return course;
+    }
+
+    /** Giảng viên sở hữu khóa hoặc ADMIN — chỉ dùng cho thao tác gỡ xuất bản. */
+    public Course requireCanUnpublish(Long courseId, AuthenticatedUser actor) {
+        return requireViewable(courseId, actor);
+    }
+
+    private Course find(Long courseId) {
+        return courseRepository.findById(courseId)
+            .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Course not found"));
+    }
+
+    private boolean isOwner(Course course, AuthenticatedUser actor) {
+        return course.getTeacher().getId().equals(actor.userId());
     }
 }

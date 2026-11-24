@@ -104,7 +104,7 @@ class LessonServiceTest {
         when(documentRepository.findById(99L)).thenReturn(Optional.of(
             LessonDocument.builder().id(99L).lessonId(10L).storageKey("safe.txt").build()));
         when(lessonRepository.findById(10L)).thenReturn(Optional.of(lesson("text")));
-        when(userRepository.findById(7L)).thenReturn(Optional.of(user(UserRole.ADMIN)));
+        when(lessonRepository.countCourseOwner(20L, 7L)).thenReturn(1L);
         org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
         org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
