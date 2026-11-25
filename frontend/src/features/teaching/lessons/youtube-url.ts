@@ -1,44 +1,59 @@
-const YOUTUBE_HOSTS = new Set([
-  'youtube.com',
-  'www.youtube.com',
-  'm.youtube.com',
-])
+const YOUTUBE_HOSTS = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com'])
+const SHORT_HOSTS = new Set(['youtu.be', 'www.youtu.be'])
+const NOCOOKIE_HOSTS = new Set(['youtube-nocookie.com', 'www.youtube-nocookie.com'])
+const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{6,64}$/
 
-export function isValidYouTubeUrl(value: string): boolean {
+function singleSegmentAfter(pathname: string, prefix: string): string | null {
+  if (!pathname.startsWith(prefix)) return null
+  let rest = pathname.slice(prefix.length)
+  if (rest.endsWith('/')) rest = rest.slice(0, -1)
+  if (!rest || rest.includes('/')) return null
+  return rest
+}
+
+export function extractYouTubeVideoId(value: string): string | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
   try {
-    const url = new URL(value)
-
+    const url = new URL(trimmed)
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-      return false
+      return null
+    }
+    const host = url.hostname.toLowerCase()
+    let candidate: string | null = null
+
+    if (SHORT_HOSTS.has(host)) {
+      candidate = singleSegmentAfter(url.pathname, '/')
+    } else if (NOCOOKIE_HOSTS.has(host)) {
+      candidate = singleSegmentAfter(url.pathname, '/embed/')
+    } else if (YOUTUBE_HOSTS.has(host)) {
+      if (url.pathname === '/watch') {
+        candidate = url.searchParams.get('v')
+      } else if (url.pathname.startsWith('/embed/')) {
+        candidate = singleSegmentAfter(url.pathname, '/embed/')
+      } else if (url.pathname.startsWith('/shorts/')) {
+        candidate = singleSegmentAfter(url.pathname, '/shorts/')
+      }
     }
 
-    if (url.hostname === 'youtu.be') {
-      return url.pathname.slice(1).trim().length > 0
-    }
-
-    if (!YOUTUBE_HOSTS.has(url.hostname)) {
-      return false
-    }
-
-    if (url.pathname === '/watch') {
-      return Boolean(url.searchParams.get('v'))
-    }
-
-    return (
-      url.pathname.startsWith('/embed/') ||
-      url.pathname.startsWith('/shorts/')
-    )
+    if (!candidate) return null
+    const id = candidate.trim()
+    return VIDEO_ID_PATTERN.test(id) ? id : null
   } catch {
-    return false
+    return null
   }
 }
 
+export function isValidYouTubeUrl(value: string): boolean {
+  return extractYouTubeVideoId(value) !== null
+}
+
+export function isOptionalValidYouTubeUrl(value?: string): boolean {
+  if (!value || !value.trim()) return true
+  return isValidYouTubeUrl(value)
+}
+
 export function getYouTubeEmbedUrl(value: string): string | undefined {
-  if (!isValidYouTubeUrl(value)) return undefined
-  const url = new URL(value)
-  let videoId = ''
-  if (url.hostname === 'youtu.be') videoId = url.pathname.slice(1)
-  else if (url.pathname === '/watch') videoId = url.searchParams.get('v') ?? ''
-  else videoId = url.pathname.split('/').filter(Boolean).at(-1) ?? ''
+  const videoId = extractYouTubeVideoId(value)
   return videoId ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}` : undefined
 }

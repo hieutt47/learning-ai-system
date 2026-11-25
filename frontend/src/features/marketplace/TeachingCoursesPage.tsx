@@ -1,17 +1,14 @@
+import { BookOutlined, InboxOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   App,
   Button,
   Card,
-  Col,
   Form,
   Input,
   Modal,
-  Row,
   Segmented,
   Select,
-  Space,
-  Statistic,
   Table,
   Typography,
   type TableProps,
@@ -31,6 +28,7 @@ import {
 import { CourseStatusTag } from './CourseStatusTag'
 import { formatDateTime } from './format'
 import type { CourseFormValues, CourseStatus, OwnedCourse } from './course.types'
+import './teaching-courses.css'
 
 type Filter = 'all' | CourseStatus
 
@@ -102,116 +100,156 @@ export function TeachingCoursesPage() {
       title: 'Khóa học',
       dataIndex: 'title',
       render: (title: string, course) => (
-        <div>
-          <Link to={paths.teachingCourse(course.id)}>
-            <strong>{title}</strong>
+        <div className="tc-course-cell">
+          <Link to={paths.teachingCourse(course.id)} className="tc-course-title">
+            {title}
           </Link>
-          <div style={{ color: 'var(--text-2, rgba(0,0,0,0.55))', fontSize: 12 }}>{course.categoryName}</div>
+          <span className="tc-course-cat">{course.categoryName}</span>
         </div>
       ),
     },
-    { title: 'Trạng thái', dataIndex: 'status', width: 120, render: (status: CourseStatus) => <CourseStatusTag status={status} /> },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'status',
+      width: 118,
+      align: 'center',
+      render: (status: CourseStatus) => <CourseStatusTag status={status} />,
+    },
     {
       title: 'Bài học',
       dataIndex: 'lessonCount',
-      width: 100,
+      width: 96,
       align: 'center',
-      render: (count: number, course) => <Link to={paths.teachingCourseLessons(course.id)}>{count}</Link>,
+      render: (count: number, course) => (
+        <Link to={paths.teachingCourseLessons(course.id)} className={`tc-metric-link${count === 0 ? ' is-zero' : ''}`}>
+          {count}
+        </Link>
+      ),
     },
     {
       title: 'Học viên',
       dataIndex: 'totalStudents',
-      width: 110,
+      width: 100,
       align: 'center',
       render: (count: number, course) => (
-        <Link to={paths.teachingCourseStudents(course.id)}>
-          <strong>{count}</strong>
+        <Link to={paths.teachingCourseStudents(course.id)} className={`tc-metric-link${count === 0 ? ' is-zero' : ''}`}>
+          {count}
         </Link>
       ),
     },
-    { title: 'Cập nhật', dataIndex: 'updatedAt', width: 150, render: (value: string) => formatDateTime(value) },
+    {
+      title: 'Cập nhật',
+      dataIndex: 'updatedAt',
+      width: 154,
+      render: (value: string) => <span className="tc-date">{formatDateTime(value)}</span>,
+    },
     {
       title: 'Thao tác',
       key: 'actions',
-      width: 240,
-      render: (_, course) => (
-        <Space wrap>
-          <Link to={paths.teachingCourse(course.id)}>
-            <Button size="small">Sửa</Button>
-          </Link>
-          {course.status === 'Draft' && (
-            <Button
-              size="small"
-              type="primary"
-              loading={publishMutation.isPending}
-              onClick={() => publishMutation.mutate({ id: course.id, published: true })}
-            >
-              Xuất bản
-            </Button>
-          )}
-          {course.status === 'Published' && (
-            <Button
-              size="small"
-              loading={publishMutation.isPending}
-              onClick={() => publishMutation.mutate({ id: course.id, published: false })}
-            >
-              Gỡ xuất bản
-            </Button>
-          )}
-          {(course.status === 'Draft' || course.status === 'Published') && (
-            <Button size="small" danger onClick={() => confirmArchive(course)}>
-              Lưu trữ
-            </Button>
-          )}
-          {course.status === 'Archived' && (
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              Không thể xuất bản lại
-            </Typography.Text>
-          )}
-        </Space>
-      ),
+      width: 280,
+      align: 'right',
+      render: (_, course) => {
+        const isRowPublishing = publishMutation.isPending && publishMutation.variables?.id === course.id
+        const isRowArchiving = archiveMutation.isPending && archiveMutation.variables === course.id
+        return (
+          <div className="tc-actions">
+            <Link to={paths.teachingCourse(course.id)}>
+              <Button size="small">Sửa</Button>
+            </Link>
+            {course.status === 'Draft' && (
+              <Button
+                size="small"
+                type="primary"
+                loading={isRowPublishing}
+                disabled={publishMutation.isPending && !isRowPublishing}
+                onClick={() => publishMutation.mutate({ id: course.id, published: true })}
+              >
+                Xuất bản
+              </Button>
+            )}
+            {course.status === 'Published' && (
+              <Button
+                size="small"
+                loading={isRowPublishing}
+                disabled={publishMutation.isPending && !isRowPublishing}
+                onClick={() => publishMutation.mutate({ id: course.id, published: false })}
+              >
+                Gỡ xuất bản
+              </Button>
+            )}
+            {(course.status === 'Draft' || course.status === 'Published') && (
+              <Button size="small" danger loading={isRowArchiving} onClick={() => confirmArchive(course)}>
+                Lưu trữ
+              </Button>
+            )}
+            {course.status === 'Archived' && (
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                Chỉ xem
+              </Typography.Text>
+            )}
+          </div>
+        )
+      },
     },
   ]
   const createButton = (
-    <Button type="primary" onClick={() => setCreateOpen(true)}>
-      + Tạo khóa học
+    <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
+      Tạo khóa học
     </Button>
   )
 
   return (
-    <Space orientation="vertical" size={20} style={{ width: '100%' }}>
-      <Row justify="space-between" align="middle">
-        <Col>
-          <Typography.Title level={3} style={{ margin: 0 }}>
-            Tổng quan
-          </Typography.Title>
-        </Col>
-        <Col>{createButton}</Col>
-      </Row>
-      <Row gutter={[16, 16]}>
-        <Col xs={24} md={8}>
-          <Card>
-            <Statistic title="Khóa đã xuất bản" value={counts.Published} formatter={(value) => `${value}/${all.length}`} />
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              {counts.Draft} bản nháp · {counts.Archived} đã lưu trữ
-            </Typography.Text>
-          </Card>
-        </Col>
-        <Col xs={24} md={8}>
-          <Card>
-            <Statistic title="Tổng học viên" value={totalStudents} />
-          </Card>
-        </Col>
-        <Col xs={24} md={8}>
-          <Card>
-            <Statistic title="Khóa đang lưu trữ" value={counts.Archived} />
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              Đã ẩn khỏi luồng học; lịch sử quiz vẫn được giữ
-            </Typography.Text>
-          </Card>
-        </Col>
-      </Row>
+    <div className="tc-page">
+      <div className="tc-header">
+        <div className="tc-header-text">
+          <Typography.Title level={3}>Tổng quan</Typography.Title>
+          <p className="tc-header-sub">Quản lý trạng thái xuất bản, bài học và học viên theo từng khóa giảng dạy.</p>
+        </div>
+        {createButton}
+      </div>
+
+      <div className="tc-kpi-grid">
+        <div className="tc-kpi-card">
+          <div className="tc-kpi-top">
+            <span className="tc-kpi-label">Khóa đã xuất bản</span>
+            <span className="tc-kpi-icon tone-primary" aria-hidden="true">
+              <BookOutlined />
+            </span>
+          </div>
+          <div className="tc-kpi-value">
+            {counts.Published}
+            <small>/ {all.length}</small>
+          </div>
+          <div className="tc-kpi-sub">
+            {counts.Draft} bản nháp · {counts.Archived} đã lưu trữ
+          </div>
+        </div>
+
+        <div className="tc-kpi-card">
+          <div className="tc-kpi-top">
+            <span className="tc-kpi-label">Tổng học viên</span>
+            <span className="tc-kpi-icon tone-success" aria-hidden="true">
+              <TeamOutlined />
+            </span>
+          </div>
+          <div className="tc-kpi-value">{totalStudents.toLocaleString('vi-VN')}</div>
+          <div className="tc-kpi-sub">Tổng lượt ghi danh trên tất cả khóa học của bạn</div>
+        </div>
+
+        <div className="tc-kpi-card">
+          <div className="tc-kpi-top">
+            <span className="tc-kpi-label">Khóa đang lưu trữ</span>
+            <span className="tc-kpi-icon tone-neutral" aria-hidden="true">
+              <InboxOutlined />
+            </span>
+          </div>
+          <div className="tc-kpi-value">{counts.Archived}</div>
+          <div className="tc-kpi-sub">Đã ẩn khỏi luồng học; lịch sử quiz vẫn được giữ</div>
+        </div>
+      </div>
+
       <Card
+        className="tc-table-card"
         title="Khóa học của tôi"
         extra={
           <Segmented
@@ -281,6 +319,6 @@ export function TeachingCoursesPage() {
           </Form.Item>
         </Form>
       </Modal>
-    </Space>
+    </div>
   )
 }
