@@ -13,9 +13,10 @@ import {
 import { CardEditor, type CandidateCard } from './CardEditor'
 import { cardsDraft, clearDraft, quizDraft, readDraft, writeDraft, type AiDraft } from './draft'
 import { QuestionEditor } from './QuestionEditor'
-import { questionErrors } from './validation'
+import { preflightAiQuizDraft } from './validation'
 import { AiButton } from './AiButton'
 import { useLessonEditability } from '../lessons/useLessonEditability'
+import { trimUnicodeWhitespace } from '../quizzes/quizValidation'
 
 export function AiPreviewPage() {
   const { lessonId = '' } = useParams()
@@ -90,15 +91,31 @@ export function AiPreviewPage() {
     onError: error => void message.error(error.message),
   })
 
+  const focusField = (targetId: string) => {
+    const el = document.getElementById(targetId)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.focus()
+    }
+  }
+
   const saveDraftMutation = useMutation({
     mutationFn: async () => {
       if (!draft) return
       let current = draft
       if (current.kind === 'quiz') {
+        const preflight = preflightAiQuizDraft(current.title, current.items)
+        if (!preflight.isValid) {
+          setSaveError('Vui lòng sửa các lỗi được đánh dấu trước khi lưu bản nháp.')
+          const firstTarget = preflight.summaryErrors[0]?.targetId
+          if (firstTarget) focusField(firstTarget)
+          return
+        }
         let quizId = current.quiz_id
         if (!quizId) {
+          const normalizedTitle = trimUnicodeWhitespace(current.title ?? '') || 'Quiz do AI tạo'
           const quiz = await createQuiz(lessonId, {
-            title: current.title?.trim() || 'Quiz do AI tạo',
+            title: normalizedTitle,
             generation_id: current.generation_id,
           })
           quizId = quiz.id
@@ -107,12 +124,13 @@ export function AiPreviewPage() {
         }
         for (let index = current.saved_count; index < current.items.length; index++) {
           const question = current.items[index]
+          const trimmedExplanation = question.explanation ? trimUnicodeWhitespace(question.explanation) : ''
           await createQuestion(quizId, {
-            content: question.content.trim(),
-            explanation: question.explanation?.trim() ?? '',
+            content: trimUnicodeWhitespace(question.content),
+            explanation: trimmedExplanation,
             order_index: index,
             options: question.options.map((option, order_index) => ({
-              content: option.content.trim(),
+              content: trimUnicodeWhitespace(option.content),
               is_correct: option.is_correct,
               order_index,
             })),
@@ -126,8 +144,8 @@ export function AiPreviewPage() {
         for (let index = current.saved_count; index < current.items.length; index++) {
           const card = current.items[index]
           await createCard(lessonId, {
-            front_text: card.front_text.trim(),
-            back_text: card.back_text.trim(),
+            front_text: trimUnicodeWhitespace(card.front_text),
+            back_text: trimUnicodeWhitespace(card.back_text),
             generation_id: current.generation_id,
           })
           current = { ...current, saved_count: index + 1 }
@@ -138,9 +156,9 @@ export function AiPreviewPage() {
     },
     retry: false,
     onError: error => {
-      const quizUnavailable = draft?.kind === 'quiz' && isApiError(error) && error.status === 404
-      setSaveError(quizUnavailable
-        ? 'Chưa lưu được quiz — chức năng quiz chưa sẵn sàng, thử lại sau.'
+      const notFound = draft?.kind === 'quiz' && isApiError(error) && error.status === 404
+      setSaveError(notFound
+        ? 'Không tìm thấy bài học hoặc quiz đích. Hãy tải lại trang và thử lại.'
         : isApiError(error) ? error.message : 'Không lưu được. Hãy thử lại.')
       if (isApiError(error) && error.status === 400) setSaveFields(error.fieldErrors())
     },
@@ -174,8 +192,9 @@ export function AiPreviewPage() {
     )
   }
 
+  const quizPreflight = draft.kind === 'quiz' ? preflightAiQuizDraft(draft.title, draft.items) : null
   const invalid = draft.kind === 'quiz'
-    ? draft.items.some(question => questionErrors(question).length > 0)
+    ? !quizPreflight!.isValid
     : draft.items.some(card => !card.front_text.trim() || !card.back_text.trim())
   const updateQuestion = (index: number, patch: Partial<QuizQuestion>) => {
     if (draft.kind !== 'quiz') return
@@ -232,14 +251,45 @@ export function AiPreviewPage() {
             value={draft.title ?? ''}
             placeholder="Quiz do AI tạo"
             disabled={!!draft.quiz_id}
+            status={quizPreflight?.titleError ? 'error' : undefined}
+            aria-invalid={Boolean(quizPreflight?.titleError) || undefined}
+            aria-describedby={quizPreflight?.titleError ? 'quiz-title-error' : undefined}
             onChange={event => changeDraft({ ...draft, title: event.target.value })}
           />
+          {quizPreflight?.titleError && (
+            <Typography.Text id="quiz-title-error" type="danger" style={{ display: 'block', marginTop: 4 }}>
+              {quizPreflight.titleError}
+            </Typography.Text>
+          )}
           {saveFields.title && (
-            <Typography.Text type="danger">
+            <Typography.Text type="danger" style={{ display: 'block', marginTop: 4 }}>
               {saveFields.title}
             </Typography.Text>
           )}
         </Card>
+      )}
+      {quizPreflight && !quizPreflight.isValid && (
+        <Alert
+          type="error"
+          showIcon
+          message={`Có ${quizPreflight.summaryErrors.length} lỗi cần sửa trước khi lưu quiz nháp`}
+          description={(
+            <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+              {quizPreflight.summaryErrors.map((issue) => (
+                <li key={issue.key}>
+                  <Button
+                    type="link"
+                    size="small"
+                    style={{ padding: 0, height: 'auto', textAlign: 'left', whiteSpace: 'normal' }}
+                    onClick={() => focusField(issue.targetId)}
+                  >
+                    {issue.message}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        />
       )}
       <div
         style={{
