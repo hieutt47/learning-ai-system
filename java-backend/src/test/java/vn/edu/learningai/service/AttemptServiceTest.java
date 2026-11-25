@@ -307,6 +307,41 @@ class AttemptServiceTest {
         org.mockito.Mockito.verifyNoInteractions(answers, quizzes, questions, options);
     }
 
+    @Test
+    void courseOwnerAndAdminCanReadSubmittedAttemptWhileOtherTeacherIsForbidden() {
+        QuizAttempt submitted = attempt(AttemptStatus.SUBMITTED);
+        submitted.setScore(new BigDecimal("66.67"));
+        submitted.setCorrectCount(2);
+        submitted.setSubmittedAt(Instant.parse("2026-11-14T00:05:00Z"));
+        when(attempts.findById(50L)).thenReturn(Optional.of(submitted));
+        when(quizzes.findById(30L)).thenReturn(Optional.of(quiz(QuizStatus.PUBLISHED)));
+        when(context.findLesson(10L)).thenReturn(Optional.of(new QuizContextRepository.LessonContext(20L, 2L)));
+        when(questions.findByQuizIdOrderByOrderIndexAsc(30L)).thenReturn(questionSet());
+        when(options.findByQuestionIdIn(List.of(101L, 102L, 103L))).thenReturn(optionSet());
+        when(answers.findByAttemptIdOrderByQuestionId(50L)).thenReturn(List.of(
+            StudentAnswer.builder().attemptId(50L).questionId(101L).selectedOptionId(1001L).isCorrect(true).build(),
+            StudentAnswer.builder().attemptId(50L).questionId(102L).selectedOptionId(1003L).isCorrect(true).build(),
+            StudentAnswer.builder().attemptId(50L).questionId(103L).selectedOptionId(null).isCorrect(false).build()
+        ));
+
+        // Course owner (teacher id=2) can read result
+        when(security.getCurrentUser()).thenReturn(User.builder().id(2L).role(UserRole.TEACHER).isActive(true).build());
+        var ownerResult = (vn.edu.learningai.dto.response.AttemptResultResponse) service.get(50L);
+        assertThat(ownerResult.score()).isEqualByComparingTo("66.67");
+        assertThat(ownerResult.studentId()).isEqualTo("4");
+
+        // Admin (id=1) can read result
+        when(security.getCurrentUser()).thenReturn(User.builder().id(1L).role(UserRole.ADMIN).isActive(true).build());
+        var adminResult = (vn.edu.learningai.dto.response.AttemptResultResponse) service.get(50L);
+        assertThat(adminResult.score()).isEqualByComparingTo("66.67");
+
+        // Another teacher (id=3) is forbidden
+        when(security.getCurrentUser()).thenReturn(User.builder().id(3L).role(UserRole.TEACHER).isActive(true).build());
+        assertThatThrownBy(() -> service.get(50L))
+            .isInstanceOfSatisfying(ApiException.class,
+                e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+    }
+
     private Quiz quiz(QuizStatus status) {
         return Quiz.builder().id(30L).lessonId(10L).title("Quiz").status(status).createdBy(2L).build();
     }
