@@ -56,10 +56,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             }
             fieldErrors.add(new FieldError(field, fieldError.getDefaultMessage()));
         }
+        String message = fieldErrors.isEmpty()
+            ? ErrorCode.VALIDATION_ERROR.getDefaultMessage()
+            : fieldErrors.stream()
+                .map(fe -> fe.getField() + ": " + fe.getMessage())
+                .distinct()
+                .collect(java.util.stream.Collectors.joining("; "));
         return ResponseEntity
             .status(ErrorCode.VALIDATION_ERROR.getStatus())
-            .body(errorBody(ErrorCode.VALIDATION_ERROR, ErrorCode.VALIDATION_ERROR.getDefaultMessage(),
-                fieldErrors, request));
+            .body(errorBody(ErrorCode.VALIDATION_ERROR, message, fieldErrors, request));
     }
     @Override
     protected ResponseEntity<Object> handleMissingServletRequestPart(

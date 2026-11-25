@@ -15,11 +15,11 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @Builder
 public class CoursePatchRequest {
-    @Size(max = 200)
+    @Size(max = 200, message = "Tên khóa học tối đa 200 ký tự")
     private String title;
     private String description;
     private Long categoryId;
-    @DecimalMin(value = "0.00")
-    @Digits(integer = 12, fraction = 2)
+    @DecimalMin(value = "0.00", message = "Giá khóa học phải từ 0 trở lên")
+    @Digits(integer = 12, fraction = 2, message = "Giá khóa học không hợp lệ")
     private BigDecimal price;
 }

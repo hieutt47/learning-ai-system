@@ -17,7 +17,6 @@ import {
 } from 'antd'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { isApiError } from '../../shared/api/client'
 import { ErrorState, LoadingState } from '../../shared/components/PageState'
 import { usePageHeader } from '../../shared/components/pageHeader'
 import { paths } from '../../shared/routing/paths'
@@ -31,6 +30,7 @@ import {
   updateCourse,
   uploadThumbnail,
 } from './course.api'
+import { applyCourseFormErrors, extractCourseErrorMessage } from './courseFormErrors'
 import { formatDateTime } from './format'
 import type { CourseFormValues, OwnedCourse } from './course.types'
 
@@ -80,17 +80,8 @@ export function CourseInfoPage() {
       void message.success('Đã lưu thay đổi.')
     },
     onError: (error: unknown) => {
-      if (isApiError(error) && error.details.length > 0) {
-        const fieldErrors = error.fieldErrors()
-        form.setFields(
-          Object.entries(fieldErrors).map(([name, msg]) => ({
-            name: name as keyof CourseFormValues,
-            errors: [msg],
-          })),
-        )
-        return
-      }
-      void message.error(error instanceof Error ? error.message : 'Không lưu được thay đổi.')
+      const detailMessage = applyCourseFormErrors(error, form)
+      void message.error(detailMessage ?? extractCourseErrorMessage(error, 'Không lưu được thay đổi.'))
     },
   })
   const thumbnailMutation = useMutation({
@@ -205,14 +196,14 @@ export function CourseInfoPage() {
               <Form.Item
                 name="title"
                 label="Tên khóa học"
-                rules={[{ required: true, max: 200, message: 'Nhập tên khóa học.' }]}
+                rules={[{ required: true, whitespace: true, max: 200, message: 'Nhập tên khóa học.' }]}
               >
                 <Input maxLength={200} showCount disabled={readOnly} />
               </Form.Item>
               <Form.Item
                 name="description"
                 label="Mô tả"
-                rules={[{ required: true, message: 'Nhập mô tả khóa học.' }]}
+                rules={[{ required: true, whitespace: true, message: 'Nhập mô tả khóa học.' }]}
               >
                 <Input.TextArea rows={5} maxLength={2000} showCount disabled={readOnly} />
               </Form.Item>

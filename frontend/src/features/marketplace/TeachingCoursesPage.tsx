@@ -26,6 +26,7 @@ import {
   setPublished,
   unarchiveCourse,
 } from './course.api'
+import { applyCourseFormErrors, extractCourseErrorMessage } from './courseFormErrors'
 import { CourseStatusTag } from './CourseStatusTag'
 import { formatDateTime } from './format'
 import type { CourseFormValues, CourseStatus, OwnedCourse } from './course.types'
@@ -58,7 +59,10 @@ export function TeachingCoursesPage() {
       void message.success('Đã tạo khóa học.')
       navigate(paths.teachingCourse(course.id))
     },
-    onError: (error: Error) => void message.error(error.message),
+    onError: (error: unknown) => {
+      const detailMessage = applyCourseFormErrors(error, form)
+      void message.error(detailMessage ?? extractCourseErrorMessage(error, 'Không tạo được khóa học.'))
+    },
   })
   const publishMutation = useMutation({
     mutationFn: ({ id, published }: { id: string; published: boolean }) => setPublished(id, published),
@@ -66,7 +70,8 @@ export function TeachingCoursesPage() {
       await invalidate()
       void message.success(course.status === 'Published' ? 'Đã xuất bản khóa học.' : 'Đã gỡ xuất bản.')
     },
-    onError: (error: Error) => void message.error(error.message),
+    onError: (error: unknown) =>
+      void message.error(extractCourseErrorMessage(error, 'Không cập nhật được trạng thái xuất bản.')),
   })
   const archiveMutation = useMutation({
     mutationFn: (id: string) => archiveCourse(id),
@@ -74,7 +79,8 @@ export function TeachingCoursesPage() {
       await invalidate()
       void message.success('Đã lưu trữ khóa học.')
     },
-    onError: (error: Error) => void message.error(error.message),
+    onError: (error: unknown) =>
+      void message.error(extractCourseErrorMessage(error, 'Không lưu trữ được khóa học.')),
   })
   const unarchiveMutation = useMutation({
     mutationFn: (id: string) => unarchiveCourse(id),
@@ -82,7 +88,8 @@ export function TeachingCoursesPage() {
       await invalidate()
       void message.success('Đã mở lại khóa học (chuyển về bản nháp).')
     },
-    onError: (error: Error) => void message.error(error.message),
+    onError: (error: unknown) =>
+      void message.error(extractCourseErrorMessage(error, 'Không mở lại được khóa học.')),
   })
   if (coursesQuery.isLoading) return <LoadingState tip="Đang tải khóa học…" />
   if (coursesQuery.isError) return <ErrorState error={coursesQuery.error} onRetry={() => void coursesQuery.refetch()} />
@@ -320,10 +327,10 @@ export function TeachingCoursesPage() {
           initialValues={{ title: '', description: '', price: '0' }}
           onFinish={(values) => createMutation.mutate(values)}
         >
-          <Form.Item name="title" label="Tên khóa học" rules={[{ required: true, max: 200, message: 'Nhập tên khóa học.' }]}>
+          <Form.Item name="title" label="Tên khóa học" rules={[{ required: true, whitespace: true, max: 200, message: 'Nhập tên khóa học.' }]}>
             <Input maxLength={200} showCount placeholder="VD: Lập trình Java cơ bản" />
           </Form.Item>
-          <Form.Item name="description" label="Mô tả" rules={[{ required: true, message: 'Nhập mô tả khóa học.' }]}>
+          <Form.Item name="description" label="Mô tả" rules={[{ required: true, whitespace: true, message: 'Nhập mô tả khóa học.' }]}>
             <Input.TextArea rows={4} maxLength={2000} showCount />
           </Form.Item>
           <Form.Item name="categoryId" label="Danh mục" rules={[{ required: true, message: 'Chọn danh mục.' }]}>

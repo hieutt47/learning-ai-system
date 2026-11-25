@@ -17,18 +17,18 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @Builder
 public class CourseWriteRequest {
-    @NotBlank
-    @Size(max = 200)
+    @NotBlank(message = "Tên khóa học không được để trống")
+    @Size(max = 200, message = "Tên khóa học tối đa 200 ký tự")
     private String title;
 
-    @NotBlank
+    @NotBlank(message = "Mô tả khóa học không được để trống")
     private String description;
 
-    @NotNull
+    @NotNull(message = "Vui lòng chọn danh mục")
     private Long categoryId;
 
-    @NotNull
-    @DecimalMin(value = "0.00")
-    @Digits(integer = 12, fraction = 2)
+    @NotNull(message = "Vui lòng nhập giá khóa học")
+    @DecimalMin(value = "0.00", message = "Giá khóa học phải từ 0 trở lên")
+    @Digits(integer = 12, fraction = 2, message = "Giá khóa học không hợp lệ")
     private BigDecimal price;
 }
