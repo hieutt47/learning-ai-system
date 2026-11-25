@@ -24,6 +24,7 @@ import {
   getCategories,
   listOwnedCourses,
   setPublished,
+  unarchiveCourse,
 } from './course.api'
 import { CourseStatusTag } from './CourseStatusTag'
 import { formatDateTime } from './format'
@@ -75,6 +76,14 @@ export function TeachingCoursesPage() {
     },
     onError: (error: Error) => void message.error(error.message),
   })
+  const unarchiveMutation = useMutation({
+    mutationFn: (id: string) => unarchiveCourse(id),
+    onSuccess: async () => {
+      await invalidate()
+      void message.success('Đã mở lại khóa học (chuyển về bản nháp).')
+    },
+    onError: (error: Error) => void message.error(error.message),
+  })
   if (coursesQuery.isLoading) return <LoadingState tip="Đang tải khóa học…" />
   if (coursesQuery.isError) return <ErrorState error={coursesQuery.error} onRetry={() => void coursesQuery.refetch()} />
   const all = coursesQuery.data?.items ?? []
@@ -93,6 +102,15 @@ export function TeachingCoursesPage() {
       okText: 'Lưu trữ',
       cancelText: 'Hủy',
       onOk: () => archiveMutation.mutateAsync(course.id),
+    })
+  }
+  const confirmUnarchive = (course: OwnedCourse) => {
+    modal.confirm({
+      title: 'Mở lại khóa học?',
+      content: 'Khóa học sẽ được chuyển về trạng thái Draft (Nháp) để bạn chỉnh sửa và xuất bản lại.',
+      okText: 'Mở lại',
+      cancelText: 'Hủy',
+      onOk: () => unarchiveMutation.mutateAsync(course.id),
     })
   }
   const columns: TableProps<OwnedCourse>['columns'] = [
@@ -151,6 +169,7 @@ export function TeachingCoursesPage() {
       render: (_, course) => {
         const isRowPublishing = publishMutation.isPending && publishMutation.variables?.id === course.id
         const isRowArchiving = archiveMutation.isPending && archiveMutation.variables === course.id
+        const isRowUnarchiving = unarchiveMutation.isPending && unarchiveMutation.variables === course.id
         return (
           <div className="tc-actions">
             <Link to={paths.teachingCourse(course.id)}>
@@ -183,9 +202,14 @@ export function TeachingCoursesPage() {
               </Button>
             )}
             {course.status === 'Archived' && (
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                Chỉ xem
-              </Typography.Text>
+              <Button
+                size="small"
+                type="primary"
+                loading={isRowUnarchiving}
+                onClick={() => confirmUnarchive(course)}
+              >
+                Mở lại
+              </Button>
             )}
           </div>
         )

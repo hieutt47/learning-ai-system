@@ -27,6 +27,7 @@ import {
   getCategories,
   getOwnedCourse,
   setPublished,
+  unarchiveCourse,
   updateCourse,
   uploadThumbnail,
 } from './course.api'
@@ -119,6 +120,14 @@ export function CourseInfoPage() {
     },
     onError: (error: Error) => void message.error(error.message),
   })
+  const unarchiveMutation = useMutation({
+    mutationFn: () => unarchiveCourse(courseId),
+    onSuccess: async () => {
+      await invalidate()
+      void message.success('Đã mở lại khóa học (chuyển về bản nháp).')
+    },
+    onError: (error: Error) => void message.error(error.message),
+  })
   if (courseQuery.isLoading) return <LoadingState tip="Đang tải khóa học…" />
   if (courseQuery.isError) return <ErrorState error={courseQuery.error} onRetry={() => void courseQuery.refetch()} />
   const course = courseQuery.data!
@@ -136,6 +145,14 @@ export function CourseInfoPage() {
       okText: 'Lưu trữ',
       cancelText: 'Hủy',
       onOk: () => archiveMutation.mutateAsync(),
+    })
+  const confirmUnarchive = () =>
+    modal.confirm({
+      title: 'Mở lại khóa học?',
+      content: 'Khóa học sẽ được chuyển về trạng thái Draft (Nháp) để bạn chỉnh sửa và xuất bản lại.',
+      okText: 'Mở lại',
+      cancelText: 'Hủy',
+      onOk: () => unarchiveMutation.mutateAsync(),
     })
   const actions = (
     <Space wrap>
@@ -165,7 +182,9 @@ export function CourseInfoPage() {
         </>
       )}
       {course.status === 'Archived' && (
-        <Typography.Text type="secondary">Khóa đã lưu trữ, không xuất bản lại được.</Typography.Text>
+        <Button type="primary" loading={unarchiveMutation.isPending} onClick={confirmUnarchive}>
+          Mở lại khóa học
+        </Button>
       )}
     </Space>
   )
@@ -174,7 +193,14 @@ export function CourseInfoPage() {
       <Col xs={24} lg={15}>
         <Space orientation="vertical" size={20} style={{ width: '100%' }}>
           <Card title="Thông tin cơ bản" extra={actions}>
-            {readOnly && <Alert type="warning" showIcon message="Khóa đã lưu trữ: chỉ xem, không sửa được." style={{ marginBottom: 16 }} />}
+            {readOnly && (
+              <Alert
+                type="warning"
+                showIcon
+                message='Khóa đã lưu trữ: chỉ xem. Bấm "Mở lại khóa học" để chuyển về bản nháp và chỉnh sửa.'
+                style={{ marginBottom: 16 }}
+              />
+            )}
             <Form<CourseFormValues> form={form} layout="vertical" onFinish={(values) => saveMutation.mutate(values)}>
               <Form.Item
                 name="title"

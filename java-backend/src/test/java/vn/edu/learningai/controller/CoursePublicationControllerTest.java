@@ -240,14 +240,47 @@ class CoursePublicationControllerTest extends IntegrationTestBase {
                 org.hamcrest.Matchers.containsString("Archived")));
     }
     @Test
-    void archiveFalseIsRejected() throws Exception {
+    void unarchiveMovesArchivedCourseBackToDraftAndAllowsRepublish() throws Exception {
+        mockMvc.perform(patch("/api/v1/courses/5/archive")
+                .header("Authorization", "Bearer " + tokenFor(3))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"archived":false}"""))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.archived_at").doesNotExist())
+            .andExpect(jsonPath("$.is_published").value(false));
+
+        giveThumbnail(5);
+        addLesson(5);
+
+        mockMvc.perform(patch("/api/v1/courses/5/publication")
+                .header("Authorization", "Bearer " + tokenFor(3))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"is_published":true}"""))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.is_published").value(true))
+            .andExpect(jsonPath("$.archived_at").doesNotExist());
+    }
+    @Test
+    void unarchiveIsIdempotentWhenNotArchived() throws Exception {
         mockMvc.perform(patch("/api/v1/courses/2/archive")
                 .header("Authorization", "Bearer " + tokenFor(2))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {"archived":false}"""))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.archived_at").doesNotExist())
+            .andExpect(jsonPath("$.is_published").value(true));
+    }
+    @Test
+    void otherTeacherCannotUnarchive() throws Exception {
+        mockMvc.perform(patch("/api/v1/courses/5/archive")
+                .header("Authorization", "Bearer " + tokenFor(2))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"archived":false}"""))
+            .andExpect(status().isForbidden());
     }
     @Test
     void otherTeacherCannotArchive() throws Exception {

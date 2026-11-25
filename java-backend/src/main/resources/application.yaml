@@ -4,10 +4,10 @@ spring:
   application:
     name: learningai
   mail:
-    host: smtp.gmail.com
-    port: 587
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -15,9 +15,9 @@ spring:
           starttls:
             enable: true
   datasource:
-    url: ${DBMS_CONNECTION}
-    username: ${DBMS_USERNAME}
-    password: ${DBMS_PASSWORD}
+    url: ${DBMS_CONNECTION:jdbc:mysql://localhost:3306/learningai}
+    username: ${DBMS_USERNAME:root}
+    password: ${DBMS_PASSWORD:123456}
   jackson:
     # contracts/api-conventions.md: JSON uses snake_case on the wire.
     property-naming-strategy: SNAKE_CASE
@@ -44,7 +44,7 @@ spring:
       ddl-auto: validate
     show-sql: true
 jwt:
-  jwt-signing-key: ${JWT_SIGNING_KEY}
+  jwt-signing-key: ${JWT_SIGNING_KEY:62sFEiAPieHpRkJDHOb2gAAsa7vVukDaAgRq0Ag5Gik=}
   access-ttl: 900000 # ms - 15 mins
   refresh-ttl: 604800000 # ms - 7 days
 

@@ -48,12 +48,24 @@ public class CoursePublicationService {
 
     @Transactional
     public CourseOwnerResponse archive(Long courseId, AuthenticatedUser actor) {
+        return setArchived(courseId, true, actor);
+    }
+
+    @Transactional
+    public CourseOwnerResponse setArchived(Long courseId, boolean archived, AuthenticatedUser actor) {
         Course course = courseOwnership.requireTeacherOwnerForUpdate(courseId, actor);
-        if (course.getArchivedAt() != null) {
+        if (archived) {
+            if (course.getArchivedAt() != null) {
+                return courseOwnerAssembler.toResponse(course);
+            }
+            course.setArchivedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
+            course.setIsPublished(false);
+            return courseOwnerAssembler.toResponse(courseRepository.save(course));
+        }
+        if (course.getArchivedAt() == null) {
             return courseOwnerAssembler.toResponse(course);
         }
-
-        course.setArchivedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
+        course.setArchivedAt(null);
         course.setIsPublished(false);
         return courseOwnerAssembler.toResponse(courseRepository.save(course));
     }

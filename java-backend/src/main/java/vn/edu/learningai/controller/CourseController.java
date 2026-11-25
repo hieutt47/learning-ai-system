@@ -88,11 +88,8 @@ public class CourseController {
         @PathVariable Long id,
         @Valid @RequestBody CourseArchiveRequest request
     ) {
-        if (!Boolean.TRUE.equals(request.getArchived())) {
-            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Only archived=true is supported");
-        }
         return ResponseEntity.status(HttpStatus.OK)
-            .body(coursePublicationService.archive(id, currentUserProvider.get()));
+            .body(coursePublicationService.setArchived(id, request.getArchived(), currentUserProvider.get()));
     }
 
     @DeleteMapping("/courses/{id}")

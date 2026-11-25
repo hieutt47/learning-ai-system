@@ -191,6 +191,9 @@ export async function setPublished(courseId: Id, published: boolean): Promise<Ow
 export async function archiveCourse(courseId: Id): Promise<OwnedCourse> {
   return mapOwned(await apiPatch<OwnedCourseWire>(`/courses/${courseId}/archive`, { archived: true }))
 }
+export async function unarchiveCourse(courseId: Id): Promise<OwnedCourse> {
+  return mapOwned(await apiPatch<OwnedCourseWire>(`/courses/${courseId}/archive`, { archived: false }))
+}
 export async function getMembers(courseId: Id, params: PageParams): Promise<Page<CourseMember>> {
   const page = await apiGet<Page<MemberWire>>(`/courses/${courseId}/members`, {
     query: { page: params.page, page_size: params.page_size },
