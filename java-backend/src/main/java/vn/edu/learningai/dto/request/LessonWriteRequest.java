@@ -4,10 +4,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import vn.edu.learningai.validation.YouTubeUrl;
+import vn.edu.learningai.validation.Utf8ByteLength;
 
 public record LessonWriteRequest(
     @NotBlank @Size(max = 200) String title,
     @JsonProperty("video_url") @Size(max = 2048) @YouTubeUrl String videoUrl,
-    @JsonProperty("transcript_text") String transcriptText
+    @JsonProperty("transcript_text") @Utf8ByteLength(max = 65535) String transcriptText
 ) {
 }

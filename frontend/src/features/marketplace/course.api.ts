@@ -36,6 +36,7 @@ interface PublicCourseWire {
   outline?: OutlineWire[] | null
   archived_at?: string | null
   enrolled_at?: string
+  learning_available?: boolean
 }
 interface OwnedCourseWire {
   id: string | number
@@ -156,6 +157,7 @@ export async function getMyCourses(params: PageParams): Promise<Page<EnrolledCou
       ...mapPublic(course),
       enrolledAt: course.enrolled_at ?? '',
       archivedAt: course.archived_at ?? undefined,
+      learningAvailable: course.learning_available ?? !course.archived_at,
     })),
   }
 }

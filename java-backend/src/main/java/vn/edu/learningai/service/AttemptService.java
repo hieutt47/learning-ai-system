@@ -74,13 +74,13 @@ public class AttemptService {
         if (!contextRepository.isEnrolled(lesson.courseId(), student.getId())) {
             throw new ApiException(ErrorCode.ENROLLMENT_REQUIRED);
         }
+        if (lesson.status() != LessonStatus.PUBLISHED) {
+            throw new ApiException(ErrorCode.NOT_FOUND, "Lesson not found");
+        }
         var existing = attemptRepository.findByQuizIdAndStudentIdAndStatus(
             quizId, student.getId(), AttemptStatus.IN_PROGRESS);
         if (existing.isPresent()) {
             return new StartResult(toAttempt(existing.get()), false);
-        }
-        if (lesson.status() != LessonStatus.PUBLISHED) {
-            throw new ApiException(ErrorCode.NOT_FOUND, "Lesson not found");
         }
         if (quiz.getStatus() != QuizStatus.PUBLISHED) {
             throw new ApiException(ErrorCode.INVALID_STATE, "Only PUBLISHED quizzes can start new attempts");

@@ -132,7 +132,7 @@ export function CourseInfoPage() {
   const confirmArchive = () =>
     modal.confirm({
       title: 'Lưu trữ khóa học?',
-      content: 'Sinh viên đã ghi danh vẫn xem lại được, nhưng khóa sẽ không còn hiển thị ở trang Khám phá.',
+      content: 'Khóa sẽ biến mất khỏi trang Khám phá. Học viên không thể mở nội dung bài học hoặc bắt đầu quiz mới; lịch sử làm quiz vẫn được giữ.',
       okText: 'Lưu trữ',
       cancelText: 'Hủy',
       onOk: () => archiveMutation.mutateAsync(),
@@ -318,6 +318,6 @@ function StatusExplanation({ course }: { course: OwnedCourse }) {
       ? 'Sinh viên chưa nhìn thấy khóa này.'
       : course.status === 'Published'
         ? 'Sinh viên thấy và ghi danh được.'
-        : 'Chỉ sinh viên đã ghi danh xem lại được.'
+        : 'Khóa đã ẩn khỏi luồng học; kết quả quiz cũ vẫn được giữ.'
   return <Typography.Text>{text}</Typography.Text>
 }

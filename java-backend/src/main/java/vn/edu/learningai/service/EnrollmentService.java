@@ -79,7 +79,8 @@ public class EnrollmentService {
         Page<EnrollmentQueryRepository.EnrolledCourse> pageResult =
             enrollmentQueryRepository.findEnrolledCourses(actor.userId(), PageRequest.of(page - 1, pageSize));
         List<CourseEnrollmentResponse> items = pageResult.getContent().stream()
-            .map(row -> new CourseEnrollmentResponse(toPublicResponse(row.course()), row.enrolledAt()))
+            .map(row -> new CourseEnrollmentResponse(toPublicResponse(row.course()), row.enrolledAt(),
+                Boolean.TRUE.equals(row.course().getIsPublished()) && row.course().getArchivedAt() == null))
             .toList();
         return new PageResponse<>(items, page, pageSize, pageResult.getTotalElements());
     }

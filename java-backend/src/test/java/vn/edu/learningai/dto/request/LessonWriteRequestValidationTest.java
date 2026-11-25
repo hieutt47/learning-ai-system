@@ -34,6 +34,14 @@ class LessonWriteRequestValidationTest {
         assertInvalid("https://youtu.be/");
     }
 
+    @Test
+    void transcriptMustFitMySqlTextColumnInUtf8Bytes() {
+        assertTrue(validator.validate(new LessonWriteRequest("Bài 1", "", "a".repeat(65535))).isEmpty());
+        var violations = validator.validate(new LessonWriteRequest("Bài 1", "", "😀".repeat(16384)));
+        assertEquals(1, violations.size());
+        assertEquals("transcriptText", violations.iterator().next().getPropertyPath().toString());
+    }
+
     private void assertInvalid(String videoUrl) {
         var violations = validator.validate(request(videoUrl));
         assertEquals(1, violations.size());
