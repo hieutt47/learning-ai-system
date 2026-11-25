@@ -4,6 +4,9 @@ import { LearningDocumentsPage } from '../../features/learning/LearningDocuments
 import { LearningLessonLayout } from '../../features/learning/LearningLessonLayout'
 import { CourseLessonsPage } from '../../features/teaching/lessons/CourseLessonsPage'
 import { AdminCoursesPage } from '../../features/marketplace/AdminCoursesPage'
+import { AdminCourseViewPage } from '../../features/admin/AdminCourseViewPage'
+import { AdminLessonViewPage } from '../../features/admin/AdminLessonViewPage'
+import { AdminLessonAiPage, AdminLessonQuizPage } from '../../features/admin/AdminLessonSectionPages'
 import { CourseDetailPage } from '../../features/marketplace/CourseDetailPage'
 import { CourseInfoPage } from '../../features/marketplace/CourseInfoPage'
 import { CourseStudentsPage } from '../../features/marketplace/CourseStudentsPage'
@@ -60,6 +63,13 @@ const learnTabs = (p: Params): TabItem[] => [
   { to: paths.learnLesson(id(p, 'courseId'), id(p, 'lessonId')), label: 'Tài liệu' },
   { to: paths.learnLessonQuiz(id(p, 'courseId'), id(p, 'lessonId')), label: 'Quiz' },
   { to: paths.learnLessonFlashcards(id(p, 'courseId'), id(p, 'lessonId')), label: 'Flashcard' },
+]
+
+/** Tab trang xem bài học của ADMIN: Nội dung · Quiz · AI & Flashcard. */
+const adminLessonTabs = (p: Params): TabItem[] => [
+  { to: paths.adminCourseLesson(id(p, 'courseId'), id(p, 'lessonId')), label: 'Nội dung' },
+  { to: paths.adminCourseLessonQuizzes(id(p, 'courseId'), id(p, 'lessonId')), label: 'Quiz' },
+  { to: paths.adminCourseLessonAi(id(p, 'courseId'), id(p, 'lessonId')), label: 'AI & Flashcard' },
 ]
 
 export const router = createBrowserRouter([
@@ -236,6 +246,28 @@ export const router = createBrowserRouter([
             handle: { title: 'Danh mục' } satisfies RouteHandle,
           },
           { path: paths.adminCourses, element: <AdminCoursesPage />, handle: { title: 'Khóa học' } satisfies RouteHandle },
+          {
+            path: '/admin/courses/:courseId',
+            element: <AdminCourseViewPage />,
+            handle: { title: 'Xem khóa học' } satisfies RouteHandle,
+          },
+          {
+            path: '/admin/courses/:courseId/lessons/:lessonId',
+            handle: { title: 'Xem bài học', tabs: adminLessonTabs } satisfies RouteHandle,
+            children: [
+              { index: true, element: <AdminLessonViewPage /> },
+              {
+                path: 'quizzes',
+                element: <AdminLessonQuizPage />,
+                handle: { title: 'Xem bài học · Quiz' } satisfies RouteHandle,
+              },
+              {
+                path: 'ai',
+                element: <AdminLessonAiPage />,
+                handle: { title: 'Xem bài học · AI & Flashcard' } satisfies RouteHandle,
+              },
+            ],
+          },
           { path: paths.adminStatistics, element: <SystemStatisticsPage /> },
         ],
       },

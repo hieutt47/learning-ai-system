@@ -3,7 +3,7 @@ import { Alert, App, Button, Card, Input, Space, Typography } from 'antd'
 import { useMutation } from '@tanstack/react-query'
 import { useBlocker, useNavigate, useParams } from 'react-router'
 import { isApiError } from '../../../shared/api/client'
-import { EmptyState } from '../../../shared/components/PageState'
+import { EmptyState, ErrorState, LoadingState } from '../../../shared/components/PageState'
 import { Icon } from '../../../shared/components/Icon'
 import { paths } from '../../../shared/routing/paths'
 import {
@@ -15,6 +15,7 @@ import { cardsDraft, clearDraft, quizDraft, readDraft, writeDraft, type AiDraft 
 import { QuestionEditor } from './QuestionEditor'
 import { cardErrors, duplicateIndexes, questionErrors } from './validation'
 import { AiButton } from './AiButton'
+import { useLessonEditability } from '../lessons/useLessonEditability'
 
 function createRequestId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -33,6 +34,7 @@ export function AiPreviewPage() {
 }
 
 function AiPreviewContent({ lessonId }: { lessonId: string }) {
+  const editability = useLessonEditability(lessonId)
   const navigate = useNavigate()
   const { message, modal } = App.useApp()
   const [draft, setDraft] = useState<AiDraft | null>(() => readDraft(lessonId))
@@ -182,6 +184,21 @@ function AiPreviewContent({ lessonId }: { lessonId: string }) {
       else setSaveFields({})
     },
   })
+
+  if (editability.loading) return <LoadingState tip="Đang tải trạng thái bài học…" />
+  if (editability.error) return <ErrorState error={editability.error} onRetry={editability.retry} />
+
+  if (editability.readOnly && draft) {
+    return (
+      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Alert type="warning" showIcon
+          message="Bài học hoặc khóa học đã lưu trữ"
+          description="Bản nháp AI trên máy không thể lưu vào bài học đã lưu trữ. Bạn có thể xóa bản nháp để quay về bài học."
+        />
+        <Button onClick={leave}>Xóa bản nháp và quay lại</Button>
+      </Space>
+    )
+  }
 
   if (!draft) {
     return (

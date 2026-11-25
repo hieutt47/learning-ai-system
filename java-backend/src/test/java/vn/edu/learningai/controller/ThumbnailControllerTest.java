@@ -189,9 +189,9 @@ class ThumbnailControllerTest extends IntegrationTestBase {
     }
     @Test
     void deletionRemovesWorkingDraftCover() throws Exception {
-        String url = upload(1, TestImages.png(), "cover.png");
+        String url = upload(2, TestImages.png(), "cover.png");
         String key = url.substring(url.lastIndexOf('/') + 1);
-        mockMvc.perform(delete("/api/v1/courses/1").header("Authorization", "Bearer " + tokenFor(1)))
+        mockMvc.perform(delete("/api/v1/courses/1").header("Authorization", "Bearer " + tokenFor(2)))
             .andExpect(status().isNoContent());
 
         mockMvc.perform(get(url)).andExpect(status().isNotFound());

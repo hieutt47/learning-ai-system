@@ -44,6 +44,7 @@ function StatusBadges({ card }: { card: Flashcard }) {
 
 interface FlashcardTableProps {
   lessonId: string
+  readOnly: boolean
 }
 
 export interface FlashcardTableHandle {
@@ -51,7 +52,7 @@ export interface FlashcardTableHandle {
 }
 
 export const FlashcardTable = forwardRef<FlashcardTableHandle, FlashcardTableProps>(
-  function FlashcardTable({ lessonId }, ref) {
+  function FlashcardTable({ lessonId, readOnly }, ref) {
     const { message, modal } = App.useApp()
     const queryClient = useQueryClient()
     const [cardForm] = Form.useForm<CardValues>()
@@ -124,6 +125,7 @@ export const FlashcardTable = forwardRef<FlashcardTableHandle, FlashcardTablePro
       onError: error => { refresh(); void message.error(aiErrorText(error)) },
     })
     const openCreate = () => {
+      if (readOnly) return
       cardForm.resetFields()
       setEditing(null)
     }
@@ -168,7 +170,7 @@ export const FlashcardTable = forwardRef<FlashcardTableHandle, FlashcardTablePro
         <Card
           title={`Flashcard của bài (${allCards.length})`}
           extra={(
-            <Button icon={<Icon name="plus" />} onClick={openCreate}>
+            <Button icon={<Icon name="plus" />} onClick={openCreate} disabled={readOnly}>
               Tạo thẻ thủ công
             </Button>
           )}
@@ -189,7 +191,7 @@ export const FlashcardTable = forwardRef<FlashcardTableHandle, FlashcardTablePro
               </Button>
             ))}
           </Space>
-          {selected.length > 0 && (
+          {!readOnly && selected.length > 0 && (
             <Alert
               type="info"
               message={`Đã chọn ${selected.length} thẻ`}
@@ -217,7 +219,7 @@ export const FlashcardTable = forwardRef<FlashcardTableHandle, FlashcardTablePro
             <EmptyState
               description="Chưa có flashcard"
               action={(
-                <Button onClick={openCreate}>
+                <Button onClick={openCreate} disabled={readOnly}>
                   Tạo thủ công
                 </Button>
               )}
@@ -228,7 +230,7 @@ export const FlashcardTable = forwardRef<FlashcardTableHandle, FlashcardTablePro
                 rowKey="id"
                 dataSource={visible}
                 pagination={false}
-                rowSelection={{
+                rowSelection={readOnly ? undefined : {
                   selectedRowKeys: selected,
                   onChange: keys => setSelected(keys.map(String)),
                   getCheckboxProps: card => ({ disabled: card.status !== 'DRAFT' }),
@@ -244,7 +246,7 @@ export const FlashcardTable = forwardRef<FlashcardTableHandle, FlashcardTablePro
                   },
                   {
                     title: 'Thao tác',
-                    render: (_, card) => card.status === 'DRAFT' ? (
+                    render: (_, card) => readOnly ? null : card.status === 'DRAFT' ? (
                       <Space>
                         <Button size="small" onClick={() => openEdit(card)}>
                           Sửa

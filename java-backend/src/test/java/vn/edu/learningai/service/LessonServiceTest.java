@@ -8,6 +8,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import vn.edu.learningai.common.enums.SourceType;
 import vn.edu.learningai.common.enums.UserRole;
 import vn.edu.learningai.entity.Lesson;
+import vn.edu.learningai.entity.Course;
 import vn.edu.learningai.entity.LessonDocument;
 import vn.edu.learningai.entity.User;
 import vn.edu.learningai.exception.ApiException;
@@ -108,7 +109,9 @@ class LessonServiceTest {
         when(documentRepository.findById(99L)).thenReturn(Optional.of(
             LessonDocument.builder().id(99L).lessonId(10L).storageKey("safe.txt").build()));
         when(lessonRepository.findById(10L)).thenReturn(Optional.of(lesson("text")));
-        when(userRepository.findById(7L)).thenReturn(Optional.of(user(UserRole.ADMIN)));
+        when(lessonRepository.countCourseOwner(20L, 7L)).thenReturn(1L);
+        when(courseRepository.findById(20L)).thenReturn(Optional.of(Course.builder().id(20L).build()));
+        when(courseRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(Course.builder().id(20L).build()));
         org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
         org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(true);
         try {

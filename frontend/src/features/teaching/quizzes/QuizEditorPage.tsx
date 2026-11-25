@@ -30,6 +30,7 @@ import { useNavigate, useParams } from 'react-router'
 import { ErrorState, LoadingState } from '../../../shared/components/PageState'
 import { usePageHeader } from '../../../shared/components/pageHeader'
 import { paths } from '../../../shared/routing/paths'
+import { useLessonEditability } from '../lessons/useLessonEditability'
 import {
   addQuestion,
   createQuiz,
@@ -56,6 +57,7 @@ export function QuizEditorPage() {
   })
 
   const quiz = quizQuery.data
+  const editability = useLessonEditability(quiz?.lessonId ?? '')
 
   usePageHeader(
     quiz
@@ -74,11 +76,13 @@ export function QuizEditorPage() {
   if (quizQuery.isError || !quiz) {
     return <ErrorState error={quizQuery.error} onRetry={() => void quizQuery.refetch()} />
   }
+  if (editability.loading) return <LoadingState tip="Đang tải trạng thái bài học…" />
+  if (editability.error) return <ErrorState error={editability.error} onRetry={editability.retry} />
 
-  return <QuizEditorForm key={quiz.id} quiz={quiz} />
+  return <QuizEditorForm key={quiz.id} quiz={quiz} forceReadOnly={editability.readOnly} />
 }
 
-function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
+function QuizEditorForm({ quiz, forceReadOnly }: { quiz: QuizAuthorDetail; forceReadOnly: boolean }) {
   const { token } = theme.useToken()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -87,7 +91,7 @@ function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
   const [isSaving, setIsSaving] = useState(false)
   const [saveUncertain, setSaveUncertain] = useState(false)
   const [saveDraft] = useState(() => createDraftSaver())
-  const isReadOnly = quiz.status !== 'DRAFT' || isSaving || saveUncertain
+  const isReadOnly = forceReadOnly || quiz.status !== 'DRAFT' || isSaving || saveUncertain
 
   const [title, setTitle] = useState(quiz.title)
   const [questions, setQuestions] = useState<LocalQuestion[]>(() =>
@@ -389,7 +393,8 @@ function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
       {/* Cột trái: Tên và danh sách câu hỏi */}
       <Col xs={24} lg={17}>
         <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-          {isReadOnly && (
+          {forceReadOnly ? <Alert type="warning" showIcon
+            message="Bài học hoặc khóa học đã lưu trữ: quiz chỉ xem, không thể tạo bản nháp mới." /> : isReadOnly && (
             <Alert
               type="info"
               showIcon
@@ -616,7 +621,7 @@ function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
 
               <Divider style={{ margin: '8px 0' }} />
 
-              {quiz.status === 'DRAFT' ? (
+              {!forceReadOnly && (quiz.status === 'DRAFT' ? (
                 <Space orientation="vertical" size={10} style={{ width: '100%' }}>
                   <Button
                     type="default"
@@ -647,7 +652,7 @@ function QuizEditorForm({ quiz }: { quiz: QuizAuthorDetail }) {
                 >
                   Tạo bản nháp mới
                 </Button>
-              )}
+              ))}
             </Space>
           </Card>
 

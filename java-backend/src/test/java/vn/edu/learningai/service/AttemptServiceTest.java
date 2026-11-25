@@ -8,6 +8,7 @@ import org.mockito.MockMakers;
 import org.mockito.junit.jupiter.MockitoExtension;
 import vn.edu.learningai.common.enums.AttemptStatus;
 import vn.edu.learningai.common.enums.QuizStatus;
+import vn.edu.learningai.common.enums.LessonStatus;
 import vn.edu.learningai.common.enums.UserRole;
 import vn.edu.learningai.dto.request.SubmitAttemptRequest;
 import vn.edu.learningai.entity.Question;
@@ -119,6 +120,19 @@ class AttemptServiceTest {
         assertThat(result.created()).isFalse();
         assertThat(result.attempt().id()).isEqualTo("50");
         verify(attempts, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void archivedLessonCannotReopenAnExistingAttempt() {
+        when(quizzes.findByIdForUpdate(30L)).thenReturn(Optional.of(quiz(QuizStatus.PUBLISHED)));
+        when(context.findLesson(10L)).thenReturn(Optional.of(
+            new QuizContextRepository.LessonContext(20L, 2L, LessonStatus.ARCHIVED)));
+        when(context.isEnrolled(20L, 4L)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.start(30L))
+            .isInstanceOfSatisfying(ApiException.class,
+                exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+        verify(attempts, never()).findByQuizIdAndStudentIdAndStatus(any(), any(), any());
     }
 
     @Test

@@ -70,7 +70,7 @@ export function AdminCoursesPage() {
       width: 220,
       render: (_, course) => (
         <Space wrap>
-          <Link to={paths.courseDetail(course.id)}>
+          <Link to={paths.adminCourse(course.id)}>
             <Button size="small">Xem</Button>
           </Link>
           {course.status === 'Published' && (

@@ -24,9 +24,12 @@ public class CoursePublicationService {
     private final LessonRepository lessonRepository;
     private final CourseOwnerAssembler courseOwnerAssembler;
     private final CourseOwnership courseOwnership;
+
     @Transactional
     public CourseOwnerResponse setPublished(Long courseId, boolean publish, AuthenticatedUser actor) {
-        Course course = courseOwnership.requireOwnedForUpdate(courseId, actor);
+        Course course = publish
+            ? courseOwnership.requireTeacherOwnerForUpdate(courseId, actor)
+            : courseOwnership.requireCanUnpublishForUpdate(courseId, actor);
         if (publish) {
             if (course.getArchivedAt() != null) {
                 throw new ApiException(ErrorCode.INVALID_STATE, "Archived courses cannot be published");
@@ -42,9 +45,10 @@ public class CoursePublicationService {
         }
         return courseOwnerAssembler.toResponse(courseRepository.save(course));
     }
+
     @Transactional
     public CourseOwnerResponse archive(Long courseId, AuthenticatedUser actor) {
-        Course course = courseOwnership.requireOwnedForUpdate(courseId, actor);
+        Course course = courseOwnership.requireTeacherOwnerForUpdate(courseId, actor);
         if (course.getArchivedAt() != null) {
             return courseOwnerAssembler.toResponse(course);
         }
@@ -53,6 +57,7 @@ public class CoursePublicationService {
         course.setIsPublished(false);
         return courseOwnerAssembler.toResponse(courseRepository.save(course));
     }
+
     private void requirePublishable(Course course) {
         if (!StringUtils.hasText(course.getTitle())) {
             throw notPublishable("title is required");
@@ -70,12 +75,14 @@ public class CoursePublicationService {
             throw notPublishable("at least one published lesson is required");
         }
     }
+
     private void requireFreePrice(Course course) {
         if (course.getPrice() != null && course.getPrice().compareTo(BigDecimal.ZERO) > 0) {
             throw new ApiException(ErrorCode.COURSE_NOT_FREE,
                 "Only free courses can be published in this version");
         }
     }
+
     private ApiException notPublishable(String reason) {
         return new ApiException(ErrorCode.INVALID_STATE, "Course cannot be published: " + reason);
     }

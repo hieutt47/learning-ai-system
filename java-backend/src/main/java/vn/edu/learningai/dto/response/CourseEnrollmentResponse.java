@@ -16,4 +16,5 @@ public class CourseEnrollmentResponse {
     @JsonUnwrapped
     private CoursePublicResponse course;
     private Instant enrolledAt;
+    private boolean learningAvailable;
 }

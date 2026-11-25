@@ -13,7 +13,8 @@ info:
     O means course-owning TEACHER or ADMIN; E means enrolled STUDENT. Resolve every
     lesson/quiz/question through its course and check object access, not just route role.
     ADMIN may manage content but may not use another actor's AI generation.
-    Enrolled students retain learning access when a course is unpublished or archived.
+    Enrolled students retain quiz history, but cannot open lessons or quizzes when a
+    course is unpublished or archived.
     Unknown and server-owned request fields are rejected with 400 VALIDATION_ERROR.
     Validation failures are 400 (not 422). State/unique conflicts are 409.
     Content-creation POSTs must not be automatically retried. Atomic draft PUT has its

@@ -24,7 +24,7 @@ Không gửi `is_correct`, `correct_option_id`, explanation trong response stude
 
 ## Khóa học và file
 
-Marketplace: is_published=true, archived_at=null. Publish cần title, description, category, thumbnail, ít nhất một lesson hợp lệ, price=0. Draft được lưu price>0; MVP không publish/enroll khóa trả phí. Unpublish/archive dừng enroll mới; student đã ghi danh vẫn xem bài và quiz Published. Outline công khai không chứa video/document/transcript private.
+Marketplace: is_published=true, archived_at=null. Publish cần title, description, category, thumbnail, ít nhất một lesson hợp lệ, price=0. Draft được lưu price>0; MVP không publish/enroll khóa trả phí. Unpublish/archive dừng enroll mới và chặn mở bài/quiz; student đã ghi danh vẫn xem được lịch sử làm quiz. Outline công khai không chứa video/document/transcript private.
 
 Enroll kiểm tra và thêm membership trong transaction; lặp trả membership cũ. Xóa khóa có membership bị từ chối, dùng archive. Không cascade xóa kết quả. Lesson/quiz có lịch sử không xóa cứng.
 

@@ -47,6 +47,7 @@ public class QuizService {
     private final QuizContextRepository contextRepository;
     private final QuizMapper mapper;
     private final SecurityHelper security;
+    private final LessonAccessPolicy lessonAccessPolicy;
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public QuizAuthorResponse create(Long lessonId, CreateQuizRequest request) {
@@ -55,6 +56,7 @@ public class QuizService {
         if (!isManager(user, lesson)) {
             throw new ApiException(ErrorCode.FORBIDDEN);
         }
+        lessonAccessPolicy.assertCanManageLesson(lessonId, user.getId());
         if (request.generationId() != null) {
             validateGeneration(request.generationId(), lessonId, user.getId());
         }
@@ -93,16 +95,13 @@ public class QuizService {
         var lesson = lesson(quiz.getLessonId());
         boolean manager = isManager(user, lesson);
         if (!manager) {
+            requireVisibleLesson(lesson);
             if (user.getRole() == UserRole.STUDENT && quiz.getStatus() != QuizStatus.PUBLISHED
                 && !(quiz.getStatus() == QuizStatus.CLOSED
                     && contextRepository.hasInProgressAttempt(quizId, user.getId()))) {
                 throw new ApiException(ErrorCode.NOT_FOUND, "Quiz not found");
             }
             requireEnrollment(user, lesson);
-            if (lesson.status() != LessonStatus.PUBLISHED
-                && !contextRepository.hasInProgressAttempt(quizId, user.getId())) {
-                throw new ApiException(ErrorCode.NOT_FOUND, "Quiz not found");
-            }
         }
         List<Question> questions = questionRepository.findByQuizIdOrderByOrderIndexAsc(quizId);
         Map<Long, List<QuestionOption>> options = loadOptions(questions);
@@ -304,6 +303,7 @@ public class QuizService {
         if (!isManager(user, lesson(quiz.getLessonId()))) {
             throw new ApiException(ErrorCode.FORBIDDEN);
         }
+        lessonAccessPolicy.assertCanManageLesson(quiz.getLessonId(), user.getId());
         return quiz;
     }
 
