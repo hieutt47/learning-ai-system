@@ -9,6 +9,8 @@ export type AiDraft =
     items: QuizQuestion[]
     /** Quiz đã tạo; Lưu tiếp sẽ dùng ID này, tránh tạo quiz trùng. */
     quiz_id?: string
+    /** Khóa idempotency cho PUT /quizzes/{id}/draft; tự xóa khi nội dung thay đổi. */
+    save_request_id?: string
     /** Số câu đã lưu; Lưu tiếp bắt đầu từ câu kế tiếp. */
     saved_count: number
     request?: GenerationRequest

@@ -13,6 +13,13 @@ public interface AIClient {
      */
     String generate(String prompt);
 
+    /**
+     * Gửi prompt với ngân sách token đầu ra cụ thể (T2).
+     */
+    default String generate(String prompt, int maxOutputTokens) {
+        return generate(prompt);
+    }
+
     /** Tên provider ghi vào ai_generations.provider. */
     String provider();
 

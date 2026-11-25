@@ -7,15 +7,16 @@ interface QuestionEditorProps {
   question: QuizQuestion
   index: number
   saved: boolean
+  isDuplicate?: boolean
   fieldErrors: Record<string, string>
   onChange: (patch: Partial<QuizQuestion>) => void
   onRemove: () => void
 }
 
 export function QuestionEditor({
-  question, index, saved, fieldErrors, onChange, onRemove,
+  question, index, saved, isDuplicate = false, fieldErrors, onChange, onRemove,
 }: QuestionEditorProps) {
-  const errors = questionErrors(question)
+  const errors = questionErrors(question, isDuplicate)
   const setCorrect = (correctIndex: number) => {
     onChange({
       options: question.options.map((option, offset) => ({
@@ -51,6 +52,9 @@ export function QuestionEditor({
           <Input.TextArea
             value={question.content}
             disabled={saved}
+            maxLength={4000}
+            showCount
+            rows={3}
             onChange={event => onChange({ content: event.target.value })}
           />
           {fieldErrors.content && (
@@ -102,6 +106,9 @@ export function QuestionEditor({
           <Input.TextArea
             value={question.explanation ?? ''}
             disabled={saved}
+            maxLength={4000}
+            showCount
+            rows={2}
             onChange={event => onChange({ explanation: event.target.value })}
           />
           {fieldErrors.explanation && (
