@@ -169,11 +169,13 @@ export const FlashcardTable = forwardRef<FlashcardTableHandle, FlashcardTablePro
       <>
         <Card
           title={`Flashcard của bài (${allCards.length})`}
-          extra={(
-            <Button icon={<Icon name="plus" />} onClick={openCreate} disabled={readOnly}>
-              Tạo thẻ thủ công
-            </Button>
-          )}
+          extra={
+            readOnly ? undefined : (
+              <Button icon={<Icon name="plus" />} onClick={openCreate}>
+                Tạo thẻ thủ công
+              </Button>
+            )
+          }
         >
           <Typography.Paragraph type="secondary">
             Thẻ đã xuất bản không sửa được, chỉ có thể đóng.
@@ -218,11 +220,13 @@ export const FlashcardTable = forwardRef<FlashcardTableHandle, FlashcardTablePro
           ) : !allCards.length ? (
             <EmptyState
               description="Chưa có flashcard"
-              action={(
-                <Button onClick={openCreate} disabled={readOnly}>
-                  Tạo thủ công
-                </Button>
-              )}
+              action={
+                readOnly ? undefined : (
+                  <Button onClick={openCreate}>
+                    Tạo thủ công
+                  </Button>
+                )
+              }
             />
           ) : (
             <>
@@ -244,29 +248,33 @@ export const FlashcardTable = forwardRef<FlashcardTableHandle, FlashcardTablePro
                     dataIndex: 'created_at',
                     render: (value: string) => formatDate(value),
                   },
-                  {
-                    title: 'Thao tác',
-                    render: (_, card) => readOnly ? null : card.status === 'DRAFT' ? (
-                      <Space>
-                        <Button size="small" onClick={() => openEdit(card)}>
-                          Sửa
-                        </Button>
-                        <Button size="small" danger onClick={() => confirmDelete(card.id)}>
-                          Xóa
-                        </Button>
-                        <Button
-                          size="small"
-                          onClick={() => confirmPublication(card.id, 'PUBLISHED')}
-                        >
-                          Xuất bản
-                        </Button>
-                      </Space>
-                    ) : card.status === 'PUBLISHED' ? (
-                      <Button size="small" onClick={() => confirmPublication(card.id, 'CLOSED')}>
-                        Đóng
-                      </Button>
-                    ) : null,
-                  },
+                  ...(!readOnly
+                    ? [
+                        {
+                          title: 'Thao tác',
+                          render: (_: unknown, card: Flashcard) => card.status === 'DRAFT' ? (
+                            <Space>
+                              <Button size="small" onClick={() => openEdit(card)}>
+                                Sửa
+                              </Button>
+                              <Button size="small" danger onClick={() => confirmDelete(card.id)}>
+                                Xóa
+                              </Button>
+                              <Button
+                                size="small"
+                                onClick={() => confirmPublication(card.id, 'PUBLISHED')}
+                              >
+                                Xuất bản
+                              </Button>
+                            </Space>
+                          ) : card.status === 'PUBLISHED' ? (
+                            <Button size="small" onClick={() => confirmPublication(card.id, 'CLOSED')}>
+                              Đóng
+                            </Button>
+                          ) : null,
+                        },
+                      ]
+                    : []),
                 ]}
               />
               <Pagination
