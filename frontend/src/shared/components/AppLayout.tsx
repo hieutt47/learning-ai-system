@@ -143,19 +143,13 @@ function Sidebar() {
           </Link>
         </div>
       ) : (
-        <div className="ubox">
-          <Avatar name={name} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <b>{name}</b>
-            <span className="st">{ROLE_LABEL[role]}</span>
-          </div>
-        </div>
+        <AccountMenu name={name} role={role} />
       )}
     </nav>
   )
 }
 
-function AccountMenu({ name, role }: { name: string; role: ViewerRole }) {
+function AccountMenu({ name, role }: { name: string; role: Exclude<ViewerRole, 'GUEST'> }) {
   const navigate = useNavigate()
   const { toggle } = useThemeMode()
   const { message } = App.useApp()
@@ -180,7 +174,7 @@ function AccountMenu({ name, role }: { name: string; role: ViewerRole }) {
       label: (
         <div style={{ padding: '2px 0' }}>
           <b style={{ color: 'var(--text)' }}>{name}</b>
-          <div className="st">{role !== 'GUEST' ? ROLE_LABEL[role] : ''}</div>
+          <div className="st">{ROLE_LABEL[role]}</div>
         </div>
       ),
     },
@@ -202,11 +196,20 @@ function AccountMenu({ name, role }: { name: string; role: ViewerRole }) {
   ]
 
   return (
-    <Dropdown menu={{ items }} trigger={['click']} placement="bottomRight" disabled={logoutMutation.isPending}>
-      <button type="button" className="ava-btn" aria-label="Menu tài khoản" disabled={logoutMutation.isPending} aria-busy={logoutMutation.isPending}>
+    <Dropdown menu={{ items }} trigger={['click']} placement="topLeft" disabled={logoutMutation.isPending}>
+      <button
+        type="button"
+        className="ubox ubox-btn"
+        aria-label="Menu tài khoản"
+        disabled={logoutMutation.isPending}
+        aria-busy={logoutMutation.isPending}
+      >
         <Avatar name={name} />
-        {logoutMutation.isPending && <span className="st">Đang đăng xuất…</span>}
-        <Icon name="down" />
+        <div className="ubox-meta">
+          <b>{name}</b>
+          <span className="st">{logoutMutation.isPending ? 'Đang đăng xuất…' : ROLE_LABEL[role]}</span>
+        </div>
+        <Icon name="up" size={14} />
       </button>
     </Dropdown>
   )
@@ -247,7 +250,6 @@ function Breadcrumb({ crumbs }: { crumbs: NonNullable<PageHeader['crumbs']> }) {
 }
 
 export function AppLayout() {
-  const { role, name } = useCurrentUser()
   const matches = useMatches()
   const [pageHeader, setPageHeader] = useState<PageHeader | null>(null)
 
@@ -270,7 +272,6 @@ export function AppLayout() {
               {crumbs && crumbs.length > 0 && <Breadcrumb crumbs={crumbs} />}
               <h1>{title}</h1>
             </div>
-            {name && <AccountMenu name={name} role={role} />}
           </header>
           {tabs && <TabBar items={tabs} />}
           <main className="content">
