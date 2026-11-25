@@ -51,6 +51,6 @@ export function filterCourseQuizzes(
 
 export function scoreBadgeColor(score: number): string {
   if (score >= 80) return 'success'
-  if (score >= 50) return 'processing'
+  if (score >= 50) return 'warning'
   return 'error'
 }

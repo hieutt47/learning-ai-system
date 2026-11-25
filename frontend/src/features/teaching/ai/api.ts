@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPatch, apiPost } from '../../../shared/api/client'
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '../../../shared/api/client'
 import type { Page } from '../../../shared/api/types'
 
 export interface Flashcard {
@@ -17,6 +17,7 @@ export interface Document {
   original_name: string
   media_type: string
   size_bytes: number
+  text_extracted?: boolean
   created_at: string
 }
 
@@ -62,9 +63,24 @@ export interface QuestionWrite {
   generation_id: string
 }
 
+export interface QuizDraftSaveBody {
+  request_id: string
+  title: string
+  questions: (QuestionWrite & { id?: null })[]
+}
+
 export const getDocuments = async (lessonId: string): Promise<Page<Document>> => {
-  const items = await apiGet<Document[]>(`/lessons/${lessonId}/documents`)
-  return { items, page: 1, page_size: Math.max(items.length, 1), total: items.length }
+  const response = await apiGet<Document[] | Page<Document>>(`/lessons/${lessonId}/documents`)
+  const rawItems = Array.isArray(response) ? response : (response?.items ?? [])
+  const items = rawItems.map(doc => ({
+    ...doc,
+    id: String(doc.id),
+    lesson_id: String(doc.lesson_id),
+  }))
+  if (Array.isArray(response)) {
+    return { items, page: 1, page_size: Math.max(items.length, 1), total: items.length }
+  }
+  return { ...response, items }
 }
 
 export const getFlashcards = (lessonId: string, page: number, pageSize = 100) =>
@@ -92,5 +108,5 @@ export const publishCard = (id: string, status: 'PUBLISHED' | 'CLOSED') =>
 export const createQuiz = (lessonId: string, body: { title: string; generation_id: string }) =>
   apiPost<{ id: string }>(`/lessons/${lessonId}/quizzes`, body)
 
-export const createQuestion = (quizId: string, body: QuestionWrite) =>
-  apiPost(`/quizzes/${quizId}/questions`, body)
+export const saveQuizDraft = (quizId: string, body: QuizDraftSaveBody) =>
+  apiPut<{ id: string }>(`/quizzes/${quizId}/draft`, body)

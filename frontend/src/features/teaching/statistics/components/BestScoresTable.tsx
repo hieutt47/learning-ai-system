@@ -1,4 +1,5 @@
-import { Card, Table, Tag, Typography, type TableProps } from 'antd'
+import { UserOutlined } from '@ant-design/icons'
+import { Card, Space, Table, Tag, Typography, type TableProps } from 'antd'
 import { EmptyState } from '../../../../shared/components/PageState'
 import { formatDateTime } from '../../../../shared/utils/format'
 import { formatCount, formatScore, scoreBadgeColor } from '../statistics.format'
@@ -21,41 +22,62 @@ export function BestScoresTable({ bestScores }: BestScoresTableProps) {
       title: 'Học viên',
       dataIndex: 'studentName',
       render: (studentName: string, row) => (
-        <div>
-          <strong>{studentName}</strong>
-          <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Mã SV: #{row.studentId}</div>
-        </div>
+        <Space size={8}>
+          <UserOutlined style={{ color: 'var(--text-2)' }} />
+          <div>
+            <strong>{studentName}</strong>
+            <div style={{ fontSize: 12, color: 'var(--text-2)' }}>Mã SV: #{row.studentId}</div>
+          </div>
+        </Space>
       ),
     },
     {
       title: 'Số lượt nộp',
       dataIndex: 'attemptCount',
-      width: 130,
+      width: 125,
       align: 'center',
       render: (value: number) => formatCount(value),
     },
     {
       title: 'Điểm cao nhất',
       dataIndex: 'score',
-      width: 150,
-      align: 'center',
-      render: (value: number) => <Tag color={scoreBadgeColor(value)}>{formatScore(value)} / 100</Tag>,
+      width: 240,
+      render: (score: number) => {
+        const pct = Math.max(0, Math.min(100, Number(score) || 0))
+        const barColor = pct >= 80 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--danger)'
+        return (
+          <div className="stats-score-cell">
+            <Tag color={scoreBadgeColor(score)} style={{ fontWeight: 600, margin: 0 }}>
+              {formatScore(score)} / 100
+            </Tag>
+            <span className="stats-score-mini" aria-hidden="true">
+              <i style={{ width: `${pct}%`, background: barColor }} />
+            </span>
+          </div>
+        )
+      },
     },
     {
       title: 'Nộp gần nhất',
       dataIndex: 'latestSubmittedAt',
-      width: 170,
+      width: 165,
       render: (value: string | null) => (value ? formatDateTime(value) : '—'),
     },
   ]
 
   return (
     <Card
-      title="Điểm cao nhất theo học viên"
-      extra={
-        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-          Lượt nộp có điểm cao nhất của mỗi học viên
-        </Typography.Text>
+      className="page-table-card"
+      title={
+        <div>
+          <span>Điểm cao nhất theo học viên</span>
+          <Typography.Paragraph
+            type="secondary"
+            style={{ margin: 0, fontWeight: 'normal', fontSize: 13, whiteSpace: 'normal' }}
+          >
+            Lượt nộp có điểm cao nhất của mỗi học viên (tính trên các lượt đã nộp).
+          </Typography.Paragraph>
+        </div>
       }
     >
       {bestScores.length === 0 ? (
@@ -66,7 +88,7 @@ export function BestScoresTable({ bestScores }: BestScoresTableProps) {
           columns={columns}
           dataSource={[...bestScores]}
           pagination={bestScores.length > 10 ? { pageSize: 10, showSizeChanger: false } : false}
-          scroll={{ x: 680 }}
+          scroll={{ x: 720 }}
         />
       )}
     </Card>

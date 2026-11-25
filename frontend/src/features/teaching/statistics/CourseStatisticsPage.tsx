@@ -1,6 +1,13 @@
-import { ReloadOutlined } from '@ant-design/icons'
+import {
+  CheckCircleOutlined,
+  FileDoneOutlined,
+  FormOutlined,
+  ReloadOutlined,
+  TeamOutlined,
+  TrophyOutlined,
+} from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
-import { Button, Card, Col, Row, Select, Space, Statistic, Typography } from 'antd'
+import { Button, Card, Select, Space } from 'antd'
 import { Link, useSearchParams } from 'react-router'
 import { EmptyState, ErrorState, LoadingState } from '../../../shared/components/PageState'
 import { usePageHeader } from '../../../shared/components/pageHeader'
@@ -10,11 +17,16 @@ import { CourseStatusTag } from '../../marketplace/CourseStatusTag'
 import { listOwnedCourses } from '../../marketplace/course.api'
 import { CompletionRateCard } from './components/CompletionRateCard'
 import { CourseQuizzesTable } from './components/CourseQuizzesTable'
+import { KpiCard } from './components/KpiCard'
 import { getCourseStatistics, statisticsKeys } from './statistics.api'
 import { formatCount, formatPercent, formatScore } from './statistics.format'
+import './statistics.css'
 
 export function CourseStatisticsPage() {
-  usePageHeader({ title: 'Thống kê khóa học' })
+  usePageHeader({
+    title: 'Thống kê khóa học',
+    crumbs: [{ label: 'Khóa học giảng dạy', to: paths.teachingCourses }, { label: 'Thống kê khóa học' }],
+  })
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedCourseId = searchParams.get('courseId') ?? undefined
 
@@ -24,8 +36,7 @@ export function CourseStatisticsPage() {
   })
 
   const courses = coursesQuery.data?.items ?? []
-  const selectedCourse =
-    courses.find((course) => course.id === requestedCourseId) ?? courses[0]
+  const selectedCourse = courses.find((course) => course.id === requestedCourseId) ?? courses[0]
   const selectedCourseId = selectedCourse?.id
 
   const statsQuery = useQuery({
@@ -63,44 +74,38 @@ export function CourseStatisticsPage() {
   const stats = statsQuery.data
 
   return (
-    <Space orientation="vertical" size={20} style={{ width: '100%' }}>
-      <Card>
-        <Row gutter={[16, 12]} justify="space-between" align="middle">
-          <Col xs={24} md={14}>
-            <Space wrap align="center">
-              <Typography.Text strong>Khóa học:</Typography.Text>
-              <Select
-                aria-label="Chọn khóa học"
-                placeholder="Chọn khóa học"
-                value={selectedCourseId}
-                onChange={handleSelectCourse}
-                style={{ width: 320, maxWidth: '100%' }}
-                options={courses.map((course) => ({
-                  label: course.title,
-                  value: course.id,
-                }))}
-              />
-              {selectedCourse && <CourseStatusTag status={selectedCourse.status} />}
-            </Space>
-          </Col>
-          <Col xs={24} md={10} style={{ textAlign: 'right' }}>
-            <Space wrap>
-              {stats && (
-                <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-                  Cập nhật lúc {formatDateTime(stats.generatedAt)}
-                </Typography.Text>
-              )}
-              <Button
-                icon={<ReloadOutlined />}
-                loading={statsQuery.isFetching}
-                onClick={() => void statsQuery.refetch()}
-              >
-                Làm mới
-              </Button>
-            </Space>
-          </Col>
-        </Row>
-      </Card>
+    <div className="stats-page">
+      <div className="stats-toolbar">
+        <Space wrap size={10} align="center">
+          <Select
+            aria-label="Chọn khóa học"
+            placeholder="Chọn khóa học"
+            value={selectedCourseId}
+            onChange={handleSelectCourse}
+            style={{ width: 320, maxWidth: '100%' }}
+            options={courses.map((course) => ({
+              label: course.title,
+              value: course.id,
+            }))}
+          />
+          {selectedCourse ? <CourseStatusTag status={selectedCourse.status} /> : null}
+        </Space>
+
+        <div className="stats-toolbar-right">
+          {stats ? (
+            <span className="stats-updated">
+              Cập nhật lúc {formatDateTime(stats.generatedAt)} (giờ Việt Nam)
+            </span>
+          ) : null}
+          <Button
+            icon={<ReloadOutlined />}
+            loading={statsQuery.isFetching}
+            onClick={() => void statsQuery.refetch()}
+          >
+            Làm mới
+          </Button>
+        </div>
+      </div>
 
       {statsQuery.isLoading ? (
         <LoadingState tip="Đang tổng hợp số liệu khóa học…" />
@@ -108,49 +113,43 @@ export function CourseStatisticsPage() {
         <ErrorState error={statsQuery.error} onRetry={() => void statsQuery.refetch()} />
       ) : stats ? (
         <>
-          <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12} lg={8} xl={4}>
-              <Card>
-                <Statistic title="Học viên ghi danh" value={formatCount(stats.enrolledStudents)} />
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} lg={8} xl={5}>
-              <Card>
-                <Statistic title="Quiz đang xuất bản" value={formatCount(stats.quizCount)} />
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  {formatCount(stats.publishedLessonCount)}/{formatCount(stats.lessonCount)} bài đang hiển thị
-                </Typography.Text>
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} lg={8} xl={5}>
-              <Card>
-                <Statistic title="Lượt đã nộp" value={formatCount(stats.submittedAttempts)} />
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  Tính mọi lượt đã nộp trong khóa
-                </Typography.Text>
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} lg={12} xl={5}>
-              <Card>
-                <Statistic title="Học viên hoàn thành" value={formatCount(stats.completedStudents)} />
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  {formatPercent(stats.completionRate)} học viên ghi danh
-                </Typography.Text>
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} lg={12} xl={5}>
-              <Card>
-                <Statistic
-                  title="Điểm trung bình"
-                  value={stats.averageScore === null ? 'Chưa có' : formatScore(stats.averageScore)}
-                  suffix={stats.averageScore === null ? undefined : '/ 100'}
-                />
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  Trung bình mọi lượt nộp
-                </Typography.Text>
-              </Card>
-            </Col>
-          </Row>
+          <div className="stats-kpi-grid">
+            <KpiCard
+              label="Học viên ghi danh"
+              value={formatCount(stats.enrolledStudents)}
+              icon={<TeamOutlined />}
+              tone="primary"
+            />
+            <KpiCard
+              label="Quiz đang xuất bản"
+              value={formatCount(stats.quizCount)}
+              sub={`${formatCount(stats.publishedLessonCount)}/${formatCount(stats.lessonCount)} bài đang hiển thị`}
+              icon={<FormOutlined />}
+              tone="info"
+            />
+            <KpiCard
+              label="Lượt nộp bài"
+              value={formatCount(stats.submittedAttempts)}
+              sub="Tính mọi lượt đã nộp"
+              icon={<FileDoneOutlined />}
+              tone="warning"
+            />
+            <KpiCard
+              label="Học viên hoàn thành"
+              value={formatCount(stats.completedStudents)}
+              sub={`${formatPercent(stats.completionRate)} học viên ghi danh`}
+              icon={<CheckCircleOutlined />}
+              tone="success"
+            />
+            <KpiCard
+              label="Điểm trung bình"
+              value={stats.averageScore === null ? '—' : formatScore(stats.averageScore)}
+              suffix={stats.averageScore === null ? undefined : '/ 100'}
+              sub="Trung bình mọi lượt nộp"
+              icon={<TrophyOutlined />}
+              tone="primary"
+            />
+          </div>
 
           <CompletionRateCard
             enrolledStudents={stats.enrolledStudents}
@@ -159,9 +158,14 @@ export function CourseStatisticsPage() {
             completionRate={stats.completionRate}
           />
 
-          <CourseQuizzesTable courseId={stats.courseId} quizzes={stats.quizzes} />
+          <CourseQuizzesTable
+            courseId={stats.courseId}
+            publishedQuizCount={stats.quizCount}
+            totalSubmittedAttempts={stats.submittedAttempts}
+            quizzes={stats.quizzes}
+          />
         </>
       ) : null}
-    </Space>
+    </div>
   )
 }

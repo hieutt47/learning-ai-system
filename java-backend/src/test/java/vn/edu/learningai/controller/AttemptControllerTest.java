@@ -15,6 +15,7 @@ import vn.edu.learningai.common.enums.AttemptStatus;
 import vn.edu.learningai.dto.response.AttemptResponse;
 import vn.edu.learningai.dto.response.AttemptResultResponse;
 import vn.edu.learningai.exception.GlobalExceptionHandler;
+import vn.edu.learningai.exception.QuizExceptionHandler;
 import vn.edu.learningai.service.AttemptService;
 
 import java.math.BigDecimal;
@@ -35,7 +36,7 @@ class AttemptControllerTest {
         service = mock(AttemptService.class, withSettings().mockMaker(MockMakers.SUBCLASS));
         var mapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
         mvc = MockMvcBuilders.standaloneSetup(new AttemptController(service))
-            .setControllerAdvice(new GlobalExceptionHandler(mapper))
+            .setControllerAdvice(new QuizExceptionHandler(), new GlobalExceptionHandler(mapper))
             .setMessageConverters(new JacksonJsonHttpMessageConverter(mapper)).build();
     }
 
@@ -138,6 +139,16 @@ class AttemptControllerTest {
         mvc.perform(post("/api/v1/attempts/50/submit").contentType(MediaType.APPLICATION_JSON).content(body))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void submitExtraFieldPreservesValidationMessage() throws Exception {
+        mvc.perform(post("/api/v1/attempts/50/submit").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"answers\":[],\"score\":100}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+            .andExpect(jsonPath("$.message").value("Only answers is allowed and required"));
         verifyNoInteractions(service);
     }
 

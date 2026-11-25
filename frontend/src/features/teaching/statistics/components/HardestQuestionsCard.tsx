@@ -1,4 +1,4 @@
-import { Button, Card, Progress, Space, Typography } from 'antd'
+import { Button, Card, Typography } from 'antd'
 import { useState } from 'react'
 import { EmptyState } from '../../../../shared/components/PageState'
 import { formatCount, formatPercent } from '../statistics.format'
@@ -17,7 +17,18 @@ export function HardestQuestionsCard({ questions, submittedAttempts }: HardestQu
 
   return (
     <Card
-      title="Câu bị sai nhiều nhất"
+      title={
+        <div>
+          <span>Câu bị sai nhiều nhất</span>
+          <Typography.Paragraph
+            type="secondary"
+            style={{ margin: 0, fontWeight: 'normal', fontSize: 13, whiteSpace: 'normal' }}
+          >
+            Sắp xếp theo số lượt làm sai giảm dần trên tổng {formatCount(submittedAttempts)} lượt đã nộp · câu bỏ trống
+            được tính là sai.
+          </Typography.Paragraph>
+        </div>
+      }
       extra={
         questions.length > DEFAULT_VISIBLE_COUNT ? (
           <Button type="link" size="small" onClick={() => setShowAll((prev) => !prev)}>
@@ -29,31 +40,26 @@ export function HardestQuestionsCard({ questions, submittedAttempts }: HardestQu
       {questions.length === 0 ? (
         <EmptyState description="Chưa ghi nhận câu trả lời sai nào trong các lượt đã nộp." />
       ) : (
-        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-          <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-            Xếp hạng theo số lượt trả lời sai (gồm cả câu bỏ trống) trên tổng {formatCount(submittedAttempts)} lượt đã
-            nộp.
-          </Typography.Text>
-
-          {visible.map((question) => (
-            <div key={question.questionId} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-                <Typography.Text>
-                  <strong>Câu {question.orderIndex + 1}:</strong> {question.questionContent}
-                </Typography.Text>
-                <Typography.Text strong style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
-                  {formatCount(question.wrongCount)} lượt sai ({formatPercent(question.wrongRate)})
-                </Typography.Text>
+        <div className="stats-bars">
+          {visible.map((question) => {
+            const widthPct = Math.min(100, Math.max(0, question.wrongRate))
+            return (
+              <div key={question.questionId} className="stats-bar-row">
+                <div className="stats-bar-label">
+                  <strong>Câu {question.orderIndex + 1}</strong>
+                  {question.questionContent}
+                </div>
+                <div className="stats-bar-track" aria-hidden="true">
+                  <span className="stats-bar-fill tone-danger" style={{ width: `${widthPct}%` }} />
+                </div>
+                <div className="stats-bar-count">
+                  {formatCount(question.wrongCount)}{' '}
+                  <span>lượt sai ({formatPercent(question.wrongRate)})</span>
+                </div>
               </div>
-              <Progress
-                percent={Math.min(100, Math.max(0, question.wrongRate))}
-                showInfo={false}
-                strokeColor="var(--danger, #DC2626)"
-                size="small"
-              />
-            </div>
-          ))}
-        </Space>
+            )
+          })}
+        </div>
       )}
     </Card>
   )

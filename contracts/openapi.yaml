@@ -407,7 +407,7 @@ paths:
     get:
       tags: [Attempts]
       operationId: getQuizAttempt
-      summary: Get the owner's attempt or submitted result
+      summary: Get an attempt or submitted result (attempt owner, course owner, or admin)
       responses:
         '200':
           description: Attempt before submit; Result with review after submit.
@@ -419,6 +419,7 @@ paths:
                   - { $ref: '#/components/schemas/AttemptResult' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /api/v1/quizzes/{quiz_id}/publication:
     parameters:

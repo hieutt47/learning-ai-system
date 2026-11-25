@@ -11,6 +11,7 @@ import vn.edu.learningai.ai.AiCandidateValidator;
 import vn.edu.learningai.ai.AiCandidateValidator.InvalidCandidateException;
 import vn.edu.learningai.ai.AiPromptBuilder;
 import vn.edu.learningai.ai.AiProperties;
+import vn.edu.learningai.ai.SourceSampler;
 import vn.edu.learningai.common.enums.GenerationStatus;
 import vn.edu.learningai.common.enums.GenerationType;
 import vn.edu.learningai.common.enums.SourceType;
@@ -18,6 +19,7 @@ import vn.edu.learningai.dto.request.GenerationRequest;
 import vn.edu.learningai.dto.response.CardCandidate;
 import vn.edu.learningai.dto.response.CardCandidateResponse;
 import vn.edu.learningai.dto.response.FlashcardCandidate;
+import vn.edu.learningai.dto.response.OptionCandidate;
 import vn.edu.learningai.dto.response.QuestionCandidate;
 import vn.edu.learningai.dto.response.QuizCandidate;
 import vn.edu.learningai.dto.response.QuizCandidateResponse;
@@ -25,13 +27,20 @@ import vn.edu.learningai.entity.AIGeneration;
 import vn.edu.learningai.exception.ApiException;
 import vn.edu.learningai.exception.ErrorCode;
 import vn.edu.learningai.repository.AiGenerationRepository;
+import vn.edu.learningai.repository.FlashcardRepository;
+import vn.edu.learningai.entity.Flashcard;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
+import java.util.random.RandomGenerator;
 
 /**
  * Sinh quiz/flashcard bằng AI (báo cáo 3.3.4, kịch bản 3.4.4). Chỉ trả preview candidate, không tạo quiz/card.
@@ -50,6 +59,7 @@ public class AiGenerationService {
     private final AIClient aiClient;
     private final AiCandidateValidator candidateValidator;
     private final AiGenerationRepository aiGenerationRepository;
+    private final FlashcardRepository flashcardRepository;
     private final AiProperties aiProperties;
     private final JsonMapper jsonMapper;
 
@@ -70,9 +80,18 @@ public class AiGenerationService {
     }
 
     public CardCandidateResponse generateFlashcards(Long teacherId, GenerationRequest request) {
+        var existingPage = flashcardRepository.findByLessonId(
+            request.lessonId(),
+            PageRequest.of(0, 30, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")))
+        );
+        List<String> existingFronts = existingPage == null ? List.of() : existingPage.getContent().stream()
+            .map(Flashcard::getFrontText)
+            .filter(s -> s != null && !s.isBlank())
+            .toList();
+
         Generated<List<CardCandidate>> result = generate(teacherId, request, GenerationType.FLASHCARD,
             AiPromptBuilder.FLASHCARD_PROMPT_VERSION,
-            text -> promptBuilder.buildFlashcardPrompt(text, request.count()),
+            text -> promptBuilder.buildFlashcardPrompt(text, request.count(), existingFronts),
             raw -> validateCardCandidate(raw, request.count()),
             FlashcardCandidate::new);
         return new CardCandidateResponse(
@@ -113,8 +132,9 @@ public class AiGenerationService {
 
         String source = lessonSourceTextProvider.getSourceText(request.lessonId(), request.sourceType(), documentId);
         int limit = aiProperties.maxSourceChars() == null ? DEFAULT_MAX_SOURCE_CHARS : aiProperties.maxSourceChars();
-        boolean truncated = source.length() > limit;
-        String sentText = truncated ? truncate(source, limit) : source;
+        SourceSampler.SampleResult sampleResult = SourceSampler.sample(source, limit, aiProperties.sourceStrategy());
+        boolean truncated = sampleResult.truncated();
+        String sentText = sampleResult.text();
 
         AIGeneration generation = AIGeneration.builder()
             .lessonId(request.lessonId())
@@ -130,9 +150,14 @@ public class AiGenerationService {
             .createdBy(teacherId)
             .build();
 
+        int dynamicMaxTokens = calculateDynamicMaxTokens(type, request.count());
         String raw;
         try {
-            raw = aiClient.generate(promptFactory.apply(sentText));
+            String prompt = promptFactory.apply(sentText);
+            raw = aiClient.generate(prompt, dynamicMaxTokens);
+            if (raw == null) {
+                raw = aiClient.generate(prompt);
+            }
         } catch (AIClientException e) {
             ErrorCode code = switch (e.getReason()) {
                 case TIMEOUT -> ErrorCode.AI_TIMEOUT;
@@ -158,8 +183,41 @@ public class AiGenerationService {
         return new Generated<>(aiGenerationRepository.save(generation), candidate, truncated);
     }
 
+    private int calculateDynamicMaxTokens(GenerationType type, int count) {
+        int max = aiProperties.maxOutputTokens() == null ? 8192 : aiProperties.maxOutputTokens();
+        int base = (type == GenerationType.QUIZ) ? 300 : 200;
+        int perItem = (type == GenerationType.QUIZ) ? 450 : 150;
+        int estimated = base + perItem * Math.max(1, count);
+        return Math.min(max, estimated);
+    }
+
     private List<QuestionCandidate> validateQuizCandidate(String json, Integer count) {
-        return candidateValidator.parseQuizCandidate(json, count);
+        return validateQuizCandidate(json, count, ThreadLocalRandom.current());
+    }
+
+    List<QuestionCandidate> validateQuizCandidate(String json, Integer count, RandomGenerator random) {
+        List<QuestionCandidate> questions = candidateValidator.parseQuizCandidate(json, count);
+        return shuffleOptions(questions, random);
+    }
+
+    static List<QuestionCandidate> shuffleOptions(List<QuestionCandidate> questions, RandomGenerator random) {
+        if (questions == null || questions.isEmpty()) {
+            return questions;
+        }
+        List<QuestionCandidate> shuffled = new java.util.ArrayList<>(questions.size());
+        for (QuestionCandidate q : questions) {
+            if (q.options() == null || q.options().size() <= 1) {
+                shuffled.add(q);
+            } else {
+                List<OptionCandidate> optionsCopy = new java.util.ArrayList<>(q.options());
+                for (int i = optionsCopy.size() - 1; i > 0; i--) {
+                    int j = random.nextInt(i + 1);
+                    Collections.swap(optionsCopy, i, j);
+                }
+                shuffled.add(new QuestionCandidate(q.content(), Collections.unmodifiableList(optionsCopy), q.explanation()));
+            }
+        }
+        return Collections.unmodifiableList(shuffled);
     }
 
     private List<CardCandidate> validateCardCandidate(String json, Integer count) {
@@ -185,11 +243,7 @@ public class AiGenerationService {
 
     /** Cắt theo số ký tự, không cắt đôi cặp surrogate (emoji, ký tự ngoài BMP). */
     static String truncate(String text, int limit) {
-        int end = limit;
-        if (end > 0 && Character.isHighSurrogate(text.charAt(end - 1))) {
-            end--;
-        }
-        return text.substring(0, end);
+        return SourceSampler.safeTruncate(text, limit);
     }
 
     private static String sha256(String text) {

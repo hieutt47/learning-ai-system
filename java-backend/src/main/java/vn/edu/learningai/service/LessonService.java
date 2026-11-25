@@ -250,7 +250,7 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
 
     private Lesson requireManage(Long lessonId, Long userId) {
         Lesson lesson = requireLesson(lessonId);
-        if (!isAdmin(userId) && lessonRepository.countCourseOwner(lesson.getCourseId(), userId) == 0) {
+        if (lessonRepository.countCourseOwner(lesson.getCourseId(), userId) == 0) {
             throw new ApiException(ErrorCode.FORBIDDEN);
         }
         Course course = courseRepository.findById(lesson.getCourseId())
@@ -262,7 +262,7 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
     private Course lockManageCourse(Long courseId, Long userId) {
         Course course = courseRepository.findByIdForUpdate(courseId)
             .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Course not found"));
-        if (!isAdmin(userId) && lessonRepository.countCourseOwner(courseId, userId) == 0) {
+        if (lessonRepository.countCourseOwner(courseId, userId) == 0) {
             throw new ApiException(ErrorCode.FORBIDDEN);
         }
         requireActiveCourse(course);
@@ -301,10 +301,6 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
             return LessonViewAccess.ENROLLED_STUDENT;
         }
         throw new ApiException(role == UserRole.STUDENT ? ErrorCode.ENROLLMENT_REQUIRED : ErrorCode.FORBIDDEN);
-    }
-
-    private boolean isAdmin(Long userId) {
-        return currentUserRole(userId) == UserRole.ADMIN;
     }
 
     private UserRole currentUserRole(Long userId) {

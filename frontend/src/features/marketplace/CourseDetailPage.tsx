@@ -132,7 +132,11 @@ export function CourseDetailPage() {
                     <List.Item>
                       <Space>
                         <Tag>{index + 1}</Tag>
-                        <span>{lesson.title}</span>
+                        {viewer.role === 'ADMIN' ? (
+                          <Link to={paths.adminCourseLesson(course.id, lesson.id)}>{lesson.title}</Link>
+                        ) : (
+                          <span>{lesson.title}</span>
+                        )}
                       </Space>
                     </List.Item>
                   )}

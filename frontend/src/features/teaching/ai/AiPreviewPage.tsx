@@ -7,24 +7,41 @@ import { EmptyState, ErrorState, LoadingState } from '../../../shared/components
 import { Icon } from '../../../shared/components/Icon'
 import { paths } from '../../../shared/routing/paths'
 import {
-  createCard, createQuestion, createQuiz, generateCards, generateQuiz,
+  createCard, createQuiz, generateCards, generateQuiz, saveQuizDraft,
   type GeneratedCards, type GeneratedQuiz, type QuizQuestion,
 } from './api'
 import { CardEditor, type CandidateCard } from './CardEditor'
 import { cardsDraft, clearDraft, quizDraft, readDraft, writeDraft, type AiDraft } from './draft'
 import { QuestionEditor } from './QuestionEditor'
-import { questionErrors } from './validation'
+import { cardErrors, duplicateIndexes, preflightAiQuizDraft } from './validation'
 import { AiButton } from './AiButton'
 import { useLessonEditability } from '../lessons/useLessonEditability'
+import { trimUnicodeWhitespace } from '../quizzes/quizValidation'
+
+function createRequestId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, char => {
+    const rand = Math.floor(Math.random() * 16)
+    const value = char === 'x' ? rand : (rand & 0x3) | 0x8
+    return value.toString(16)
+  })
+}
 
 export function AiPreviewPage() {
   const { lessonId = '' } = useParams()
+  return <AiPreviewContent key={lessonId} lessonId={lessonId} />
+}
+
+function AiPreviewContent({ lessonId }: { lessonId: string }) {
   const editability = useLessonEditability(lessonId)
   const navigate = useNavigate()
   const { message, modal } = App.useApp()
   const [draft, setDraft] = useState<AiDraft | null>(() => readDraft(lessonId))
   const [saveError, setSaveError] = useState<string>()
   const [saveFields, setSaveFields] = useState<Record<string, string>>({})
+  const [saveFailedIndex, setSaveFailedIndex] = useState<number>()
   // Cho phép điều hướng sau khi đã lưu hoặc xác nhận bỏ bản nháp.
   const allowExit = useRef(false)
   const blocker = useBlocker(({ currentLocation, nextLocation }) =>
@@ -57,12 +74,22 @@ export function AiPreviewPage() {
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [draft])
 
-  const changeDraft = (value: AiDraft) => {
+  const persistProgress = (value: AiDraft) => {
     setDraft(value)
     writeDraft(lessonId, value)
+  }
+
+  const changeDraft = (value: AiDraft) => {
+    const sanitized = value.kind === 'quiz'
+      ? { ...value, save_request_id: undefined }
+      : value
+    setDraft(sanitized)
+    writeDraft(lessonId, sanitized)
     setSaveError(undefined)
     setSaveFields({})
+    setSaveFailedIndex(undefined)
   }
+
   const leave = () => confirmLeave(() => void navigate(paths.teachingLessonAi(lessonId)))
   const finish = (destination: string, notice: string) => {
     clearDraft(lessonId)
@@ -90,59 +117,87 @@ export function AiPreviewPage() {
     onError: error => void message.error(error.message),
   })
 
+  const focusField = (targetId: string) => {
+    const el = document.getElementById(targetId)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.focus()
+    }
+  }
+
   const saveDraftMutation = useMutation({
     mutationFn: async () => {
       if (!draft) return
       let current = draft
-      if (current.kind === 'quiz') {
-        let quizId = current.quiz_id
-        if (!quizId) {
-          const quiz = await createQuiz(lessonId, {
-            title: current.title?.trim() || 'Quiz do AI tạo',
-            generation_id: current.generation_id,
-          })
-          quizId = quiz.id
-          current = { ...current, quiz_id: quizId }
-          changeDraft(current)
-        }
-        for (let index = current.saved_count; index < current.items.length; index++) {
-          const question = current.items[index]
-          await createQuestion(quizId, {
-            content: question.content.trim(),
-            explanation: question.explanation?.trim() ?? '',
-            order_index: index,
-            options: question.options.map((option, order_index) => ({
-              content: option.content.trim(),
-              is_correct: option.is_correct,
-              order_index,
+      let failedIndex: number | undefined
+      try {
+        if (current.kind === 'quiz') {
+          const preflight = preflightAiQuizDraft(current.title, current.items)
+          if (!preflight.isValid) {
+            setSaveError('Vui lòng sửa các lỗi được đánh dấu trước khi lưu bản nháp.')
+            const firstTarget = preflight.summaryErrors[0]?.targetId
+            if (firstTarget) focusField(firstTarget)
+            return
+          }
+          let quizId = current.quiz_id
+          const title = trimUnicodeWhitespace(current.title ?? '') || 'Quiz do AI tạo'
+          if (!quizId) {
+            const quiz = await createQuiz(lessonId, {
+              title,
+              generation_id: current.generation_id,
+            })
+            quizId = String(quiz.id)
+            current = { ...current, quiz_id: quizId }
+            persistProgress(current)
+          }
+          const requestId = current.save_request_id ?? createRequestId()
+          if (current.save_request_id !== requestId) {
+            current = { ...current, save_request_id: requestId }
+            persistProgress(current)
+          }
+          await saveQuizDraft(quizId, {
+            request_id: requestId,
+            title,
+            questions: current.items.map((question, index) => ({
+              content: trimUnicodeWhitespace(question.content),
+              explanation: question.explanation ? trimUnicodeWhitespace(question.explanation) : '',
+              order_index: index,
+              options: question.options.map((option, optionIndex) => ({
+                content: trimUnicodeWhitespace(option.content),
+                is_correct: option.is_correct,
+                order_index: optionIndex,
+              })),
+              generation_id: current.generation_id,
             })),
-            generation_id: current.generation_id,
           })
-          current = { ...current, saved_count: index + 1 }
-          changeDraft(current)
+          finish(paths.quizEditor(quizId), 'Đã lưu quiz nháp')
+        } else {
+          for (let index = current.saved_count; index < current.items.length; index++) {
+            failedIndex = index
+            const card = current.items[index]
+            await createCard(lessonId, {
+              front_text: trimUnicodeWhitespace(card.front_text),
+              back_text: trimUnicodeWhitespace(card.back_text),
+              generation_id: current.generation_id,
+            })
+            current = { ...current, saved_count: index + 1 }
+            persistProgress(current)
+          }
+          finish(paths.teachingLessonAi(lessonId), 'Đã lưu flashcard nháp')
         }
-        finish(paths.quizEditor(quizId), 'Đã lưu quiz nháp')
-      } else {
-        for (let index = current.saved_count; index < current.items.length; index++) {
-          const card = current.items[index]
-          await createCard(lessonId, {
-            front_text: card.front_text.trim(),
-            back_text: card.back_text.trim(),
-            generation_id: current.generation_id,
-          })
-          current = { ...current, saved_count: index + 1 }
-          changeDraft(current)
-        }
-        finish(paths.teachingLessonAi(lessonId), 'Đã lưu flashcard nháp')
+      } catch (error) {
+        setSaveFailedIndex(failedIndex)
+        throw error
       }
     },
     retry: false,
     onError: error => {
-      const quizUnavailable = draft?.kind === 'quiz' && isApiError(error) && error.status === 404
-      setSaveError(quizUnavailable
-        ? 'Chưa lưu được quiz — chức năng quiz chưa sẵn sàng, thử lại sau.'
+      const notFound = draft?.kind === 'quiz' && isApiError(error) && error.status === 404
+      setSaveError(notFound
+        ? 'Không tìm thấy bài học hoặc quiz đích. Hãy tải lại trang và thử lại.'
         : isApiError(error) ? error.message : 'Không lưu được. Hãy thử lại.')
       if (isApiError(error) && error.status === 400) setSaveFields(error.fieldErrors())
+      else setSaveFields({})
     },
   })
 
@@ -174,9 +229,16 @@ export function AiPreviewPage() {
     )
   }
 
+  const quizPreflight = draft.kind === 'quiz' ? preflightAiQuizDraft(draft.title, draft.items) : null
+  const duplicateItemIndexes = draft.kind === 'quiz'
+    ? quizPreflight!.duplicateQuestionIndices
+    : duplicateIndexes(draft.items.map(card => card.front_text))
+
   const invalid = draft.kind === 'quiz'
-    ? draft.items.some(question => questionErrors(question).length > 0)
-    : draft.items.some(card => !card.front_text.trim() || !card.back_text.trim())
+    ? !quizPreflight!.isValid
+    : draft.items.some((card, index) =>
+      cardErrors(card, duplicateItemIndexes.has(index)).length > 0)
+
   const updateQuestion = (index: number, patch: Partial<QuizQuestion>) => {
     if (draft.kind !== 'quiz') return
     changeDraft({
@@ -199,6 +261,8 @@ export function AiPreviewPage() {
     } as AiDraft)
   }
 
+  const hasPartialProgress = draft.saved_count > 0 || (draft.kind === 'quiz' && Boolean(draft.quiz_id))
+
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
       <Alert
@@ -213,7 +277,11 @@ export function AiPreviewPage() {
         icon={<Icon name="spark" />}
       />
       {draft.source_truncated && (
-        <Alert type="warning" showIcon message="AI chỉ đọc 20.000 ký tự đầu của nguồn" />
+        <Alert
+          type="warning"
+          showIcon
+          message="Nội dung bài học dài vượt giới hạn: AI đã lấy mẫu đại diện rải đều toàn bài để tạo bản nháp."
+        />
       )}
       {draft.saved_count > 0 && (
         <Alert
@@ -231,15 +299,46 @@ export function AiPreviewPage() {
             maxLength={200}
             value={draft.title ?? ''}
             placeholder="Quiz do AI tạo"
-            disabled={!!draft.quiz_id}
+            disabled={draft.saved_count > 0}
+            status={quizPreflight?.titleError ? 'error' : undefined}
+            aria-invalid={Boolean(quizPreflight?.titleError) || undefined}
+            aria-describedby={quizPreflight?.titleError ? 'quiz-title-error' : undefined}
             onChange={event => changeDraft({ ...draft, title: event.target.value })}
           />
+          {quizPreflight?.titleError && (
+            <Typography.Text id="quiz-title-error" type="danger" style={{ display: 'block', marginTop: 4 }}>
+              {quizPreflight.titleError}
+            </Typography.Text>
+          )}
           {saveFields.title && (
-            <Typography.Text type="danger">
+            <Typography.Text type="danger" style={{ display: 'block', marginTop: 4 }}>
               {saveFields.title}
             </Typography.Text>
           )}
         </Card>
+      )}
+      {quizPreflight && !quizPreflight.isValid && (
+        <Alert
+          type="error"
+          showIcon
+          message={`Có ${quizPreflight.summaryErrors.length} lỗi cần sửa trước khi lưu quiz nháp`}
+          description={(
+            <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+              {quizPreflight.summaryErrors.map((issue) => (
+                <li key={issue.key}>
+                  <Button
+                    type="link"
+                    size="small"
+                    style={{ padding: 0, height: 'auto', textAlign: 'left', whiteSpace: 'normal' }}
+                    onClick={() => focusField(issue.targetId)}
+                  >
+                    {issue.message}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        />
       )}
       <div
         style={{
@@ -257,7 +356,8 @@ export function AiPreviewPage() {
               question={question}
               index={index}
               saved={index < draft.saved_count}
-              fieldErrors={saveFields}
+              isDuplicate={duplicateItemIndexes.has(index)}
+              fieldErrors={index === saveFailedIndex ? saveFields : {}}
               onChange={patch => updateQuestion(index, patch)}
               onRemove={() => removeItem(index)}
             />
@@ -268,7 +368,8 @@ export function AiPreviewPage() {
               card={card}
               index={index}
               saved={index < draft.saved_count}
-              fieldErrors={saveFields}
+              isDuplicate={duplicateItemIndexes.has(index)}
+              fieldErrors={index === saveFailedIndex ? saveFields : {}}
               onChange={patch => updateCard(index, patch)}
               onRemove={() => removeItem(index)}
             />
@@ -288,9 +389,16 @@ export function AiPreviewPage() {
             </Button>
             <Button
               icon={<Icon name="refresh" />}
-              disabled={draft.saved_count > 0 || !draft.request}
+              disabled={hasPartialProgress || !draft.request}
               loading={regenerateMutation.isPending}
-              onClick={() => regenerateMutation.mutate()}
+              onClick={() => {
+                modal.confirm({
+                  title: 'Sinh lại bản nháp mới?',
+                  content: 'Mọi chỉnh sửa của bạn trên bản nháp hiện tại sẽ bị thay thế bằng kết quả mới.',
+                  okText: 'Sinh lại',
+                  onOk: () => regenerateMutation.mutate(),
+                })
+              }}
             >
               Sinh lại
             </Button>
@@ -299,7 +407,7 @@ export function AiPreviewPage() {
               loading={saveDraftMutation.isPending}
               onClick={() => saveDraftMutation.mutate()}
             >
-              {draft.saved_count ? 'Lưu tiếp' : 'Lưu thành bản nháp'}
+              {hasPartialProgress ? 'Lưu tiếp' : 'Lưu thành bản nháp'}
             </AiButton>
           </Space>
         </Space>

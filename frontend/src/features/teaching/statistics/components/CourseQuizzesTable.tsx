@@ -17,10 +17,17 @@ import type { CourseQuizFilter, CourseQuizStatistics } from '../statistics.types
 
 interface CourseQuizzesTableProps {
   courseId: string
+  publishedQuizCount: number
+  totalSubmittedAttempts: number
   quizzes: readonly CourseQuizStatistics[]
 }
 
-export function CourseQuizzesTable({ courseId, quizzes }: CourseQuizzesTableProps) {
+export function CourseQuizzesTable({
+  courseId,
+  publishedQuizCount,
+  totalSubmittedAttempts,
+  quizzes,
+}: CourseQuizzesTableProps) {
   const [filter, setFilter] = useState<CourseQuizFilter>('active_published')
   const activeCount = quizzes.filter(isActivePublishedQuiz).length
   const visibleQuizzes = filterCourseQuizzes(quizzes, filter)
@@ -32,7 +39,7 @@ export function CourseQuizzesTable({ courseId, quizzes }: CourseQuizzesTableProp
       render: (title: string, quiz) => (
         <div>
           <strong>{title}</strong>
-          <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{formatCount(quiz.questionCount)} câu hỏi</div>
+          <div style={{ fontSize: 12, color: 'var(--text-2)' }}>{formatCount(quiz.questionCount)} câu hỏi</div>
         </div>
       ),
     },
@@ -61,28 +68,38 @@ export function CourseQuizzesTable({ courseId, quizzes }: CourseQuizzesTableProp
     {
       title: 'Lượt nộp',
       dataIndex: 'submittedAttempts',
-      width: 105,
+      width: 100,
       align: 'center',
       render: (value: number) => formatCount(value),
     },
     {
       title: 'Học viên',
       dataIndex: 'uniqueStudents',
-      width: 105,
+      width: 100,
       align: 'center',
       render: (value: number) => formatCount(value),
     },
     {
       title: 'Điểm TB',
       dataIndex: 'averageScore',
-      width: 120,
-      align: 'center',
-      render: (value: number | null) =>
-        value === null ? (
-          <Typography.Text type="secondary">—</Typography.Text>
-        ) : (
-          <Tag color={scoreBadgeColor(value)}>{formatScore(value)} / 100</Tag>
-        ),
+      width: 185,
+      render: (value: number | null) => {
+        if (value === null) {
+          return <Typography.Text type="secondary">—</Typography.Text>
+        }
+        const pct = Math.max(0, Math.min(100, value))
+        const barColor = pct >= 80 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--danger)'
+        return (
+          <div className="stats-score-cell">
+            <Tag color={scoreBadgeColor(value)} style={{ fontWeight: 600, margin: 0 }}>
+              {formatScore(value)} / 100
+            </Tag>
+            <span className="stats-score-mini" aria-hidden="true">
+              <i style={{ width: `${pct}%`, background: barColor }} />
+            </span>
+          </div>
+        )
+      },
     },
     {
       title: 'Nộp gần nhất',
@@ -91,7 +108,7 @@ export function CourseQuizzesTable({ courseId, quizzes }: CourseQuizzesTableProp
       render: (value: string | null) => (value ? formatDateTime(value) : '—'),
     },
     {
-      title: 'Thao tác',
+      title: 'Hành động',
       key: 'actions',
       width: 135,
       align: 'right',
@@ -107,7 +124,19 @@ export function CourseQuizzesTable({ courseId, quizzes }: CourseQuizzesTableProp
 
   return (
     <Card
-      title="Quiz của khóa học"
+      className="page-table-card"
+      title={
+        <div>
+          <span>Quiz của khóa</span>
+          <Typography.Paragraph
+            type="secondary"
+            style={{ margin: 0, fontWeight: 'normal', fontSize: 13, whiteSpace: 'normal' }}
+          >
+            {formatCount(publishedQuizCount)} quiz đang xuất bản · {formatCount(totalSubmittedAttempts)} lượt nộp · Điểm
+            trung bình tính trên các lượt đã nộp (thang 100).
+          </Typography.Paragraph>
+        </div>
+      }
       extra={
         quizzes.length > 0 ? (
           <Segmented
@@ -126,7 +155,7 @@ export function CourseQuizzesTable({ courseId, quizzes }: CourseQuizzesTableProp
           description={
             filter === 'active_published' && quizzes.length > 0
               ? 'Không có quiz nào đang xuất bản ở bài học hiển thị. Chuyển sang "Tất cả" để xem lịch sử quiz đã đóng.'
-              : 'Khóa học chưa có quiz nào được xuất bản. Hãy xuất bản quiz trong bài học để xem thống kê tại đây.'
+              : 'Khóa học chưa có quiz nào được xuất bản. Xuất bản quiz trong bài học để xem thống kê chi tiết tại đây.'
           }
           action={
             quizzes.length === 0 ? (
@@ -137,18 +166,13 @@ export function CourseQuizzesTable({ courseId, quizzes }: CourseQuizzesTableProp
           }
         />
       ) : (
-        <>
-          <Table<CourseQuizStatistics>
-            rowKey="quizId"
-            columns={columns}
-            dataSource={visibleQuizzes}
-            pagination={visibleQuizzes.length > 10 ? { pageSize: 10, showSizeChanger: false } : false}
-            scroll={{ x: 960 }}
-          />
-          <Typography.Paragraph type="secondary" style={{ margin: '12px 0 0', fontSize: 12 }}>
-            Điểm trung bình tính trên tất cả lượt đã nộp (status = SUBMITTED), thang điểm 0–100.
-          </Typography.Paragraph>
-        </>
+        <Table<CourseQuizStatistics>
+          rowKey="quizId"
+          columns={columns}
+          dataSource={visibleQuizzes}
+          pagination={visibleQuizzes.length > 10 ? { pageSize: 10, showSizeChanger: false } : false}
+          scroll={{ x: 960 }}
+        />
       )}
     </Card>
   )

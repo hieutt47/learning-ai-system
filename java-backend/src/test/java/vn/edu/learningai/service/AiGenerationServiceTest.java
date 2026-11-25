@@ -18,12 +18,17 @@ import vn.edu.learningai.common.enums.GenerationType;
 import vn.edu.learningai.common.enums.SourceType;
 import vn.edu.learningai.dto.request.GenerationRequest;
 import vn.edu.learningai.dto.response.CardCandidateResponse;
+import vn.edu.learningai.dto.response.OptionCandidate;
+import vn.edu.learningai.dto.response.QuestionCandidate;
 import vn.edu.learningai.dto.response.QuizCandidateResponse;
 import vn.edu.learningai.entity.AIGeneration;
 import vn.edu.learningai.exception.ApiException;
 import vn.edu.learningai.exception.ErrorCode;
 import vn.edu.learningai.repository.AiGenerationRepository;
+import vn.edu.learningai.repository.FlashcardRepository;
+import org.springframework.data.domain.Page;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,6 +54,7 @@ class AiGenerationServiceTest {
     private LessonAccessPolicy access;
     private LessonSourceTextProvider sourceText;
     private AiGenerationRepository repository;
+    private FlashcardRepository flashcardRepository;
     private AIClient aiClient;
     private AiGenerationService service;
 
@@ -57,6 +63,8 @@ class AiGenerationServiceTest {
         access = mock(LessonAccessPolicy.class);
         sourceText = mock(LessonSourceTextProvider.class);
         repository = mock(AiGenerationRepository.class);
+        flashcardRepository = mock(FlashcardRepository.class);
+        when(flashcardRepository.findByLessonId(any(), any())).thenReturn(Page.empty());
         // Spy MockAIClient (class) bằng mock maker kiểu lớp con, vì cấu hình chung là mock-maker-proxy.
         aiClient = mock(MockAIClient.class, withSettings()
             .spiedInstance(new MockAIClient(jsonMapper))
@@ -74,7 +82,7 @@ class AiGenerationServiceTest {
     private AiGenerationService newService(int maxSourceChars) {
         AiProperties props = new AiProperties("mock", null, null, null, 90, 8192, maxSourceChars);
         return new AiGenerationService(access, sourceText, new AiPromptBuilder(), aiClient,
-            new AiCandidateValidator(jsonMapper), repository, props, jsonMapper);
+            new AiCandidateValidator(jsonMapper), repository, flashcardRepository, props, jsonMapper);
     }
 
     private static GenerationRequest quizRequest(int count) {
@@ -209,6 +217,36 @@ class AiGenerationServiceTest {
         AIGeneration g = generation(TEACHER, LESSON, GenerationType.QUIZ, GenerationStatus.SUCCEEDED);
         when(repository.findById(5L)).thenReturn(Optional.of(g));
         assertThat(service.validateForSave(5L, LESSON, TEACHER, GenerationType.QUIZ)).isSameAs(g);
+    }
+
+    @Test
+    void generateQuizPreservesCorrectOptionCountAfterShuffle() {
+        QuizCandidateResponse response = service.generateQuiz(TEACHER, quizRequest(3));
+        assertThat(response.candidate().questions()).hasSize(3);
+        for (QuestionCandidate q : response.candidate().questions()) {
+            assertThat(q.options()).hasSizeGreaterThanOrEqualTo(2);
+            long correctCount = q.options().stream().filter(OptionCandidate::isCorrect).count();
+            assertThat(correctCount).isEqualTo(1);
+        }
+        String storedJson = savedGeneration().getCandidateJson();
+        assertThat(storedJson).isEqualTo(jsonMapper.writeValueAsString(response.candidate()));
+    }
+
+    @Test
+    void shuffleOptionsWithSeedChangesPositionAndKeepsCorrectness() {
+        List<OptionCandidate> originalOptions = List.of(
+            new OptionCandidate("A", true),
+            new OptionCandidate("B", false),
+            new OptionCandidate("C", false),
+            new OptionCandidate("D", false));
+        List<QuestionCandidate> input = List.of(new QuestionCandidate("Q1?", originalOptions, "Exp"));
+
+        List<QuestionCandidate> shuffled = AiGenerationService.shuffleOptions(input, new java.util.Random(42L));
+
+        assertThat(shuffled).hasSize(1);
+        List<OptionCandidate> options = shuffled.get(0).options();
+        assertThat(options).containsExactlyInAnyOrderElementsOf(originalOptions);
+        assertThat(options).isNotEqualTo(originalOptions);
     }
 
     @Test

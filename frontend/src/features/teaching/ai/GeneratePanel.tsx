@@ -33,7 +33,10 @@ export function GeneratePanel({ lessonId, onManualCard }: GeneratePanelProps) {
     queryKey: ['lesson-documents', lessonId],
     queryFn: () => getDocuments(lessonId),
     retry: false,
+    enabled: Boolean(lessonId),
   })
+  const docList = documents.data?.items ?? []
+  const usableDocs = docList.filter(document => document.text_extracted !== false)
   const generateMutation = useMutation<GeneratedQuiz | GeneratedCards, Error, GenerationRequest>({
     mutationFn: request => {
       const nextController = new AbortController()
@@ -158,7 +161,7 @@ export function GeneratePanel({ lessonId, onManualCard }: GeneratePanelProps) {
                 {
                   label: 'Tài liệu',
                   value: 'DOCUMENT',
-                  disabled: documents.isError || !documents.data?.items.length,
+                  disabled: documents.isError || usableDocs.length === 0,
                 },
               ]}
             />
@@ -168,9 +171,12 @@ export function GeneratePanel({ lessonId, onManualCard }: GeneratePanelProps) {
               placeholder="Chọn tài liệu"
               value={documentId}
               onChange={setDocumentId}
-              options={documents.data?.items.map(document => ({
-                label: document.original_name,
+              options={docList.map(document => ({
+                label: document.text_extracted === false
+                  ? `${document.original_name} (chưa trích xuất được văn bản)`
+                  : document.original_name,
                 value: document.id,
+                disabled: document.text_extracted === false,
               }))}
             />
           </Space>
@@ -179,9 +185,14 @@ export function GeneratePanel({ lessonId, onManualCard }: GeneratePanelProps) {
               Không tải được danh sách tài liệu. Bạn vẫn có thể dùng Transcript.
             </Typography.Text>
           )}
-          {documents.isSuccess && !documents.data.items.length && (
+          {documents.isSuccess && docList.length === 0 && (
             <Typography.Text type="secondary" style={{ display: 'block' }}>
               Bài học chưa có tài liệu. Bạn có thể dùng Transcript.
+            </Typography.Text>
+          )}
+          {documents.isSuccess && docList.length > 0 && usableDocs.length === 0 && (
+            <Typography.Text type="secondary" style={{ display: 'block' }}>
+              Tài liệu hiện có chưa trích xuất được văn bản (có thể là PDF scan). Bạn có thể dùng Transcript.
             </Typography.Text>
           )}
         </Form.Item>

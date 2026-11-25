@@ -87,7 +87,7 @@ public class EnrollmentService {
     @Transactional(readOnly = true)
     public PageResponse<MemberResponse> listMembers(Long courseId, AuthenticatedUser actor, int page, int pageSize) {
         requireValidPagination(page, pageSize);
-        Course course = courseOwnership.requireOwned(courseId, actor);
+        Course course = courseOwnership.requireViewable(courseId, actor);
         Page<MemberRow> pageResult =
             enrollmentQueryRepository.findMembers(course.getId(), PageRequest.of(page - 1, pageSize));
         List<MemberResponse> items = pageResult.getContent().stream()

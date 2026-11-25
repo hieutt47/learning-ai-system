@@ -6,12 +6,18 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import vn.edu.learningai.controller.AttemptController;
 import vn.edu.learningai.controller.QuizController;
+import vn.edu.learningai.controller.QuizDraftSaveController;
 
 import java.util.List;
 import java.util.UUID;
 
-@RestControllerAdvice(assignableTypes = QuizController.class)
+@RestControllerAdvice(assignableTypes = {
+    QuizController.class,
+    QuizDraftSaveController.class,
+    AttemptController.class
+})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class QuizExceptionHandler {
     @ExceptionHandler(ApiException.class)
