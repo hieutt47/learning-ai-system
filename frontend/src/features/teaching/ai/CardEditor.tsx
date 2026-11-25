@@ -1,5 +1,6 @@
 import { Button, Card, Input, Space, Typography } from 'antd'
 import { Icon } from '../../../shared/components/Icon'
+import { cardErrors } from './validation'
 
 export interface CandidateCard {
   front_text: string
@@ -10,18 +11,16 @@ interface CardEditorProps {
   card: CandidateCard
   index: number
   saved: boolean
+  isDuplicate?: boolean
   fieldErrors: Record<string, string>
   onChange: (patch: Partial<CandidateCard>) => void
   onRemove: () => void
 }
 
 export function CardEditor({
-  card, index, saved, fieldErrors, onChange, onRemove,
+  card, index, saved, isDuplicate = false, fieldErrors, onChange, onRemove,
 }: CardEditorProps) {
-  const errors = [
-    !card.front_text.trim() ? 'Nhập mặt trước' : '',
-    !card.back_text.trim() ? 'Nhập mặt sau' : '',
-  ].filter(Boolean)
+  const errors = cardErrors(card, isDuplicate)
 
   return (
     <Card
@@ -40,6 +39,8 @@ export function CardEditor({
             value={card.front_text}
             disabled={saved}
             maxLength={4000}
+            showCount
+            rows={2}
             onChange={event => onChange({ front_text: event.target.value })}
           />
           {fieldErrors.front_text && (
@@ -54,6 +55,8 @@ export function CardEditor({
             value={card.back_text}
             disabled={saved}
             maxLength={4000}
+            showCount
+            rows={2}
             onChange={event => onChange({ back_text: event.target.value })}
           />
           {fieldErrors.back_text && (

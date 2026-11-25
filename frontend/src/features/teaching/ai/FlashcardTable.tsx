@@ -61,15 +61,17 @@ export const FlashcardTable = forwardRef<FlashcardTableHandle, FlashcardTablePro
     const [selected, setSelected] = useState<string[]>([])
     const cards = useQuery({
       queryKey: ['lesson-flashcards', lessonId],
+      enabled: Boolean(lessonId),
       queryFn: async () => {
         const first = await getFlashcards(lessonId, 1, 100)
-        const count = Math.ceil(first.total / 100)
+        const total = first?.total ?? 0
+        const count = Math.ceil(total / 100)
         const rest = await Promise.all(
           Array.from({ length: Math.max(0, count - 1) }, (_, index) =>
             getFlashcards(lessonId, index + 2, 100),
           ),
         )
-        return [first, ...rest].flatMap(result => result.items)
+        return [first, ...rest].flatMap(result => result?.items ?? [])
       },
     })
     const refresh = () => {
