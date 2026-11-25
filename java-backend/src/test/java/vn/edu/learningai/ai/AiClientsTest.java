@@ -81,4 +81,24 @@ class AiClientsTest {
             new AiProperties("llm", "https://openrouter.ai/api/v1", "", "k", 5, 1000, 20000), jsonMapper))
             .hasMessageContaining("AI_MODEL");
     }
+
+    @Test
+    void llmBuildsRequestBodyWithDynamicTokens() {
+        LlmAIClient client = llm();
+        var body = client.buildRequestBody("Hello prompt", 500);
+        assertThat(body.get("model")).isEqualTo("test-model");
+        assertThat(body.get("max_tokens")).isEqualTo(500);
+        assertThat(body.get("temperature")).isEqualTo(0.3);
+        assertThat(body).doesNotContainKey("response_format");
+    }
+
+    @Test
+    void llmIncludesResponseFormatAndCustomTemperatureWhenConfigured() {
+        AiProperties props = new AiProperties("llm", "https://example.invalid/v1", "test-model", "test-key",
+            5, 1000, 20000, "spread", true, 0.6);
+        LlmAIClient client = new LlmAIClient(props, jsonMapper);
+        var body = client.buildRequestBody("Prompt", 400);
+        assertThat(body.get("temperature")).isEqualTo(0.6);
+        assertThat(body.get("response_format")).isEqualTo(java.util.Map.of("type", "json_object"));
+    }
 }

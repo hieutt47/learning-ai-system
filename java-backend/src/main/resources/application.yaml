@@ -66,4 +66,7 @@ app:
     api-key: ${AI_API_KEY:}
     timeout-seconds: ${AI_TIMEOUT_SECONDS:90}
     max-output-tokens: ${AI_MAX_OUTPUT_TOKENS:8192}
-    max-source-chars: 20000
+    max-source-chars: ${AI_MAX_SOURCE_CHARS:20000}
+    source-strategy: ${AI_SOURCE_STRATEGY:spread}
+    json-mode: ${AI_JSON_MODE:false}
+    temperature: ${AI_TEMPERATURE:0.3}
