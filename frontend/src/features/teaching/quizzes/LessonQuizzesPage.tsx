@@ -1,4 +1,5 @@
 import {
+  BarChartOutlined,
   DeleteOutlined,
   EditOutlined,
   EyeOutlined,
@@ -164,6 +165,14 @@ export function LessonQuizzesPage() {
                   type="text"
                   icon={<EyeOutlined />}
                   onClick={() => navigate(paths.quizEditor(quiz.id))}
+                />
+              </Tooltip>
+              <Tooltip title="Xem thống kê quiz">
+                <Button
+                  type="text"
+                  aria-label="Xem thống kê quiz"
+                  icon={<BarChartOutlined />}
+                  onClick={() => navigate(paths.quizStatistics(quiz.id))}
                 />
               </Tooltip>
               {quiz.status === 'PUBLISHED' && !readOnly && (
