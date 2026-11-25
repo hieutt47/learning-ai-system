@@ -286,7 +286,7 @@ function LearnFlashcardsContent({ lessonId }: { lessonId: string }) {
                 onClick={() => markCard('review')}
                 style={{ minWidth: 140 }}
               >
-                Chưa nhớ (1)
+                Chưa nhớ
               </Button>
               <Button
                 type="primary"
@@ -300,11 +300,11 @@ function LearnFlashcardsContent({ lessonId }: { lessonId: string }) {
                   color: 'var(--on-primary)',
                 }}
               >
-                Đã nhớ (2)
+                Đã nhớ
               </Button>
             </Space>
             <Button type="text" size="small" onClick={flip}>
-              Lật lại câu hỏi (Space)
+              Lật lại câu hỏi
             </Button>
           </Space>
         ) : (
