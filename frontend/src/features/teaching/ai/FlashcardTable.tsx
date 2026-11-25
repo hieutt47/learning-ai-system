@@ -234,6 +234,7 @@ export const FlashcardTable = forwardRef<FlashcardTableHandle, FlashcardTablePro
                 rowKey="id"
                 dataSource={visible}
                 pagination={false}
+                scroll={{ x: 760 }}
                 rowSelection={readOnly ? undefined : {
                   selectedRowKeys: selected,
                   onChange: keys => setSelected(keys.map(String)),
@@ -252,8 +253,9 @@ export const FlashcardTable = forwardRef<FlashcardTableHandle, FlashcardTablePro
                     ? [
                         {
                           title: 'Thao tác',
+                          width: 220,
                           render: (_: unknown, card: Flashcard) => card.status === 'DRAFT' ? (
-                            <Space>
+                            <Space size={6} style={{ whiteSpace: 'nowrap' }}>
                               <Button size="small" onClick={() => openEdit(card)}>
                                 Sửa
                               </Button>

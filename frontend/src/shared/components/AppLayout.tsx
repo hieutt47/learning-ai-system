@@ -31,11 +31,6 @@ interface NavGroup {
   items: NavItem[]
 }
 
-const ACCOUNT_GROUP: NavGroup = {
-  heading: 'Tài khoản',
-  items: [{ to: paths.profile, icon: 'user', label: 'Hồ sơ', match: [paths.profile] }],
-}
-
 const EXPLORE: NavItem = { to: paths.explore, icon: 'compass', label: 'Khám phá khóa học', match: [paths.explore, '/courses'] }
 
 const NAV_BY_ROLE: Record<ViewerRole, NavGroup[]> = {
@@ -49,7 +44,6 @@ const NAV_BY_ROLE: Record<ViewerRole, NavGroup[]> = {
         { to: paths.attempts, icon: 'clock', label: 'Lịch sử làm bài', match: [paths.attempts] },
       ],
     },
-    ACCOUNT_GROUP,
   ],
   TEACHER: [
     {
@@ -64,7 +58,6 @@ const NAV_BY_ROLE: Record<ViewerRole, NavGroup[]> = {
         { to: paths.teachingStatistics, icon: 'chart', label: 'Thống kê', match: [paths.teachingStatistics] },
       ],
     },
-    ACCOUNT_GROUP,
   ],
   ADMIN: [
     {
@@ -77,7 +70,6 @@ const NAV_BY_ROLE: Record<ViewerRole, NavGroup[]> = {
         { to: paths.adminStatistics, icon: 'chart', label: 'Thống kê hệ thống', match: [paths.adminStatistics] },
       ],
     },
-    ACCOUNT_GROUP,
   ],
 }
 

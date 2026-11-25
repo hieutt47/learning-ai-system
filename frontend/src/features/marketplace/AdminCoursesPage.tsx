@@ -63,13 +63,13 @@ export function AdminCoursesPage() {
     },
     { title: 'Trạng thái', dataIndex: 'status', width: 120, render: (status: CourseStatus) => <CourseStatusTag status={status} /> },
     { title: 'Học viên', dataIndex: 'totalStudents', width: 100, align: 'center' },
-    { title: 'Cập nhật', dataIndex: 'updatedAt', width: 150, render: (value: string) => formatDateTime(value) },
+    { title: 'Cập nhật', dataIndex: 'updatedAt', width: 160, render: (value: string) => formatDateTime(value) },
     {
       title: 'Hành động',
       key: 'actions',
       width: 220,
       render: (_, course) => (
-        <Space wrap>
+        <Space size={6} style={{ whiteSpace: 'nowrap' }}>
           <Link to={paths.adminCourse(course.id)}>
             <Button size="small">Xem</Button>
           </Link>

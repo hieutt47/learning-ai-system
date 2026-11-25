@@ -275,7 +275,7 @@ export function TeachingCoursesPage() {
             columns={columns}
             dataSource={visible}
             pagination={false}
-            scroll={{ x: 960 }}
+            scroll={{ x: 980 }}
             locale={{ emptyText: <EmptyState description="Không có khóa học nào ở trạng thái này." /> }}
           />
         )}
