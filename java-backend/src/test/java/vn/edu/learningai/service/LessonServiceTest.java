@@ -5,19 +5,22 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import vn.edu.learningai.common.enums.LessonStatus;
 import vn.edu.learningai.common.enums.SourceType;
 import vn.edu.learningai.common.enums.UserRole;
-import vn.edu.learningai.entity.Lesson;
 import vn.edu.learningai.entity.Course;
+import vn.edu.learningai.entity.Lesson;
 import vn.edu.learningai.entity.LessonDocument;
 import vn.edu.learningai.entity.User;
 import vn.edu.learningai.exception.ApiException;
 import vn.edu.learningai.exception.ErrorCode;
+import vn.edu.learningai.repository.CourseRepository;
 import vn.edu.learningai.repository.LessonDocumentRepository;
 import vn.edu.learningai.repository.LessonRepository;
-import vn.edu.learningai.repository.CourseRepository;
-import vn.edu.learningai.common.enums.LessonStatus;
 import vn.edu.learningai.repository.UserRepository;
+import vn.edu.learningai.service.lesson.LessonDocumentInspector;
+import vn.edu.learningai.service.lesson.LessonResponseAssembler;
+import vn.edu.learningai.service.lesson.YouTubeUrlPolicy;
 
 import java.util.Optional;
 
@@ -39,8 +42,18 @@ class LessonServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new LessonService(lessonRepository, courseRepository, documentRepository, userRepository,
-            documentStorage, textExtractor, documentCleanup);
+        service = new LessonService(
+            lessonRepository,
+            courseRepository,
+            documentRepository,
+            userRepository,
+            documentStorage,
+            textExtractor,
+            documentCleanup,
+            new YouTubeUrlPolicy(),
+            new LessonDocumentInspector(),
+            new LessonResponseAssembler(lessonRepository, courseRepository, documentRepository)
+        );
     }
 
     @Test
@@ -94,6 +107,19 @@ class LessonServiceTest {
     }
 
     @Test
+    void enrolledStudentInUnpublishedCourseGetsForbiddenInsteadOfEnrollmentRequired() {
+        when(lessonRepository.findById(10L)).thenReturn(Optional.of(lesson("transcript")));
+        when(userRepository.findById(7L)).thenReturn(Optional.of(user(UserRole.STUDENT)));
+        when(lessonRepository.countCourseMember(20L, 7L)).thenReturn(0L);
+        when(lessonRepository.countRawCourseMember(20L, 7L)).thenReturn(1L);
+
+        ApiException exception = assertThrows(ApiException.class,
+            () -> service.assertCanViewLesson(10L, 7L));
+
+        assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
+    }
+
+    @Test
     void unrelatedTeacherGetsForbiddenInsteadOfEnrollmentError() {
         when(lessonRepository.findById(10L)).thenReturn(Optional.of(lesson("transcript")));
         when(userRepository.findById(7L)).thenReturn(Optional.of(user(UserRole.TEACHER)));
@@ -108,9 +134,9 @@ class LessonServiceTest {
     void deletingDocumentMustNotRemoveFileBeforeDatabaseCommit() {
         when(documentRepository.findById(99L)).thenReturn(Optional.of(
             LessonDocument.builder().id(99L).lessonId(10L).storageKey("safe.txt").build()));
-        when(lessonRepository.findById(10L)).thenReturn(Optional.of(lesson("text")));
+        when(lessonRepository.findCourseIdById(10L)).thenReturn(Optional.of(20L));
+        when(lessonRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(lesson("text")));
         when(lessonRepository.countCourseOwner(20L, 7L)).thenReturn(1L);
-        when(courseRepository.findById(20L)).thenReturn(Optional.of(Course.builder().id(20L).build()));
         when(courseRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(Course.builder().id(20L).build()));
         org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
         org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(true);

@@ -1,47 +1,42 @@
 package vn.edu.learningai.service;
 
 import lombok.RequiredArgsConstructor;
-import org.apache.tika.Tika;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import vn.edu.learningai.common.enums.SourceType;
 import vn.edu.learningai.common.enums.LessonStatus;
+import vn.edu.learningai.common.enums.SourceType;
 import vn.edu.learningai.common.enums.UserRole;
 import vn.edu.learningai.dto.request.LessonReorderRequest;
 import vn.edu.learningai.dto.request.LessonWriteRequest;
 import vn.edu.learningai.dto.response.LessonDocumentResponse;
 import vn.edu.learningai.dto.response.LessonResponse;
-import vn.edu.learningai.entity.Lesson;
 import vn.edu.learningai.entity.Course;
+import vn.edu.learningai.entity.Lesson;
 import vn.edu.learningai.entity.LessonDocument;
 import vn.edu.learningai.entity.User;
 import vn.edu.learningai.exception.ApiException;
 import vn.edu.learningai.exception.ErrorCode;
+import vn.edu.learningai.repository.CourseRepository;
 import vn.edu.learningai.repository.LessonDocumentRepository;
 import vn.edu.learningai.repository.LessonRepository;
-import vn.edu.learningai.repository.CourseRepository;
 import vn.edu.learningai.repository.UserRepository;
+import vn.edu.learningai.service.lesson.LessonDocumentInspector;
+import vn.edu.learningai.service.lesson.LessonResponseAssembler;
+import vn.edu.learningai.service.lesson.YouTubeUrlPolicy;
 
-import java.io.InputStream;
-import java.io.IOException;
-import java.security.MessageDigest;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class LessonService implements LessonAccessPolicy, LessonSourceTextProvider {
-    private static final long MAX_DOCUMENT_BYTES = 10L * 1024 * 1024;
-    private static final Set<String> ALLOWED_MEDIA_TYPES = Set.of(
-        "application/pdf",
-        "text/plain",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    );
+    private static final int TEMP_ORDER_OFFSET = 1000;
 
     private final LessonRepository lessonRepository;
     private final CourseRepository courseRepository;
@@ -50,137 +45,159 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
     private final DocumentStorage documentStorage;
     private final DocumentTextExtractor textExtractor;
     private final DocumentCleanupService documentCleanup;
+    private final YouTubeUrlPolicy youTubeUrlPolicy;
+    private final LessonDocumentInspector documentInspector;
+    private final LessonResponseAssembler responseAssembler;
 
     @Transactional(readOnly = true)
     public List<LessonResponse> listForCourse(Long courseId, Long userId) {
-        boolean includeTranscript = assertCanViewCourse(courseId, userId) == LessonViewAccess.MANAGER;
-        List<Lesson> lessons = includeTranscript
+        boolean managerView = assertCanViewCourse(courseId, userId) == LessonViewAccess.MANAGER;
+        boolean canManage = managerView && lessonRepository.countCourseOwner(courseId, userId) > 0;
+        List<Lesson> lessons = managerView
             ? lessonRepository.findByCourseIdOrderByOrderIndexAsc(courseId)
             : lessonRepository.findByCourseIdAndStatusOrderByOrderIndexAsc(courseId, LessonStatus.PUBLISHED);
-        return lessons.stream()
-            .map(lesson -> toResponse(lesson, includeTranscript))
-            .toList();
+        return responseAssembler.toResponses(courseId, lessons, managerView, canManage);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public LessonResponse create(Long courseId, LessonWriteRequest request, Long userId) {
         Course course = lockManageCourse(courseId, userId);
         List<Lesson> lessons = lessonRepository.findByCourseIdForUpdate(courseId);
+        int nextOrderIndex = lessons.stream()
+            .mapToInt(Lesson::getOrderIndex)
+            .max()
+            .orElse(0) + 1;
         Lesson lesson = Lesson.builder()
             .courseId(courseId)
             .title(request.title().trim())
-            .videoUrl(request.videoUrl() == null ? "" : request.videoUrl().trim())
+            .videoUrl(youTubeUrlPolicy.normalizeOptional(request.videoUrl()))
             .transcriptText(normalizeText(request.transcriptText()))
-            .orderIndex(lessons.size() + 1)
+            .orderIndex(nextOrderIndex)
             .status(Boolean.TRUE.equals(course.getIsPublished()) ? LessonStatus.DRAFT : LessonStatus.PUBLISHED)
             .build();
-        return toResponse(lessonRepository.save(lesson), true);
+        return responseAssembler.toResponse(lessonRepository.save(lesson), true, true);
     }
 
     @Transactional(readOnly = true)
     public LessonResponse get(Long lessonId, Long userId) {
         Lesson lesson = requireLesson(lessonId);
-        boolean includeTranscript = assertCanViewLesson(lessonId, userId) == LessonViewAccess.MANAGER;
-        return toResponse(lesson, includeTranscript);
+        boolean managerView = assertCanViewLesson(lessonId, userId) == LessonViewAccess.MANAGER;
+        boolean canManage = managerView && lessonRepository.countCourseOwner(lesson.getCourseId(), userId) > 0;
+        return responseAssembler.toResponse(lesson, managerView, canManage);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public LessonResponse update(Long lessonId, LessonWriteRequest request, Long userId) {
-        Lesson lesson = requireManage(lessonId, userId);
-        lockManageCourse(lesson.getCourseId(), userId);
-        requireEditable(lesson);
-        lesson.updateContent(request.title(), request.videoUrl(), request.transcriptText());
-        return toResponse(lesson, true);
+        LockedLessonContext context = lockManageLesson(lessonId, userId);
+        requireEditable(context.lesson());
+        context.lesson().updateContent(
+            request.title(),
+            youTubeUrlPolicy.normalizeOptional(request.videoUrl()),
+            request.transcriptText()
+        );
+        return responseAssembler.toResponse(context.lesson(), true, true);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public LessonResponse changeStatus(Long lessonId, LessonStatus status, Long userId) {
-        Lesson lesson = requireManage(lessonId, userId);
-        Course course = lockManageCourse(lesson.getCourseId(), userId);
+        LockedLessonContext context = lockManageLesson(lessonId, userId);
+        Lesson lesson = context.lesson();
         if (lesson.getStatus() == status) {
-            return toResponse(lesson, true);
+            return responseAssembler.toResponse(lesson, true, true);
         }
         if (lesson.getStatus() == LessonStatus.DRAFT && status == LessonStatus.PUBLISHED) {
             lesson.changeStatus(status);
         } else if (lesson.getStatus() == LessonStatus.PUBLISHED && status == LessonStatus.ARCHIVED) {
-            requireAnotherPublishedLesson(lesson, course);
+            requireAnotherPublishedLesson(lesson, context.course());
             lesson.changeStatus(status);
         } else {
             throw new ApiException(ErrorCode.INVALID_STATE, "Allowed transitions: DRAFT to PUBLISHED, PUBLISHED to ARCHIVED");
         }
-        return toResponse(lesson, true);
+        return responseAssembler.toResponse(lesson, true, true);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public List<LessonResponse> reorder(Long courseId, LessonReorderRequest request, Long userId) {
         lockManageCourse(courseId, userId);
         List<Lesson> lessons = lessonRepository.findByCourseIdForUpdate(courseId);
         List<Long> requestedIds = request.lessonIds();
-        Set<Long> existingIds = lessons.stream().map(Lesson::getId).collect(java.util.stream.Collectors.toSet());
+        Set<Long> existingIds = lessons.stream().map(Lesson::getId).collect(Collectors.toSet());
         if (requestedIds.size() != lessons.size() || new HashSet<>(requestedIds).size() != requestedIds.size()
             || !existingIds.equals(new HashSet<>(requestedIds))) {
             throw new ApiException(ErrorCode.VALIDATION_ERROR, "lesson_ids must contain every lesson of the course exactly once");
         }
-        for (int index = 0; index < lessons.size(); index++) {
-            lessons.get(index).changeOrder(index + lessons.size() + 1000);
-        }
-        lessonRepository.flush();
-        var byId = lessons.stream().collect(java.util.stream.Collectors.toMap(Lesson::getId, lesson -> lesson));
+
+        Map<Long, Lesson> byId = lessons.stream().collect(Collectors.toMap(Lesson::getId, lesson -> lesson));
         for (int index = 0; index < requestedIds.size(); index++) {
-            byId.get(requestedIds.get(index)).changeOrder(index + 1);
+            Lesson target = byId.get(requestedIds.get(index));
+            if (target.getStatus() == LessonStatus.ARCHIVED && target.getOrderIndex() != index + 1) {
+                throw new ApiException(ErrorCode.INVALID_STATE, "Archived lesson is read-only");
+            }
         }
-        lessonRepository.flush();
-        return requestedIds.stream().map(byId::get).map(lesson -> toResponse(lesson, true)).toList();
+
+        shiftAndAssignOrders(lessons, requestedIds.stream().map(byId::get).toList());
+        return responseAssembler.toResponses(courseId, requestedIds.stream().map(byId::get).toList(), true, true);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void delete(Long lessonId, Long userId) {
-        Lesson lesson = requireManage(lessonId, userId);
-        Course course = lockManageCourse(lesson.getCourseId(), userId);
+        LockedLessonContext context = lockManageLesson(lessonId, userId);
+        Lesson lesson = context.lesson();
         requireEditable(lesson);
-        requireAnotherPublishedLesson(lesson, course);
+        requireAnotherPublishedLesson(lesson, context.course());
         if (lessonRepository.countQuizAttempts(lessonId) > 0) {
             throw new ApiException(ErrorCode.LESSON_DELETE_BLOCKED);
         }
         if (lessonRepository.countQuizzes(lessonId) > 0 || lessonRepository.countFlashcards(lessonId) > 0) {
             throw new ApiException(ErrorCode.INVALID_STATE, "Delete draft quiz and flashcard content before deleting the lesson");
         }
+
+        // No quiz/flashcard references ai_generations for this lesson anymore; clean orphaned logs to satisfy FK.
+        lessonRepository.deleteAiGenerations(lessonId);
         var documents = documentRepository.findByLessonIdOrderByCreatedAtAsc(lessonId);
         documents.forEach(document -> documentCleanup.afterCommit(document.getStorageKey()));
         documentRepository.deleteAll(documents);
+        documentRepository.flush();
         lessonRepository.delete(lesson);
+        lessonRepository.flush();
         compactOrders(lesson.getCourseId());
     }
 
     @Transactional(readOnly = true)
     public List<LessonDocumentResponse> listDocuments(Long lessonId, Long userId) {
         assertCanViewLesson(lessonId, userId);
-        return documentRepository.findByLessonIdOrderByCreatedAtAsc(lessonId).stream().map(this::toDocumentResponse).toList();
+        return documentRepository.findByLessonIdOrderByCreatedAtAsc(lessonId).stream()
+            .map(responseAssembler::toDocumentResponse)
+            .toList();
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public LessonDocumentResponse uploadDocument(Long lessonId, MultipartFile file, Long userId) {
-        Lesson lesson = requireManage(lessonId, userId);
-        lockManageCourse(lesson.getCourseId(), userId);
-        requireEditable(lesson);
-        String mediaType = validateDocument(file);
-        String extractedText = textExtractor.extract(file);
+        // Pre-authorize with scalar queries so expensive Tika parsing neither runs for unauthorized
+        // callers nor populates Hibernate's L1 cache with pre-lock Lesson/Course state.
+        precheckUploadAuthority(lessonId, userId);
+        LessonDocumentInspector.InspectedDocument inspected = documentInspector.inspect(file);
+        String extractedText = textExtractor.extract(file, inspected.mediaType());
+
+        LockedLessonContext locked = lockManageLesson(lessonId, userId);
+        requireEditable(locked.lesson());
+
         String storageKey = documentStorage.newKey(file);
         documentCleanup.stageUpload(storageKey);
         documentStorage.store(storageKey, file);
         LessonDocument document = LessonDocument.builder()
-                .lessonId(lessonId)
-                .uploadedBy(userId)
-                .originalName(safeOriginalName(file))
-                .storageKey(storageKey)
-                .mediaType(mediaType)
-                .sizeBytes(file.getSize())
-                .extractedText(extractedText)
-                .contentHash(sha256(file))
-                .build();
+            .lessonId(lessonId)
+            .uploadedBy(userId)
+            .originalName(inspected.originalName())
+            .storageKey(storageKey)
+            .mediaType(inspected.mediaType())
+            .sizeBytes(inspected.sizeBytes())
+            .extractedText(extractedText)
+            .contentHash(inspected.contentHash())
+            .build();
         var saved = documentRepository.saveAndFlush(document);
         documentCleanup.adoptUpload(storageKey);
-        return toDocumentResponse(saved);
+        return responseAssembler.toDocumentResponse(saved);
     }
 
     @Transactional(readOnly = true)
@@ -188,16 +205,19 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
         LessonDocument document = documentRepository.findById(documentId)
             .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Document not found"));
         assertCanViewLesson(document.getLessonId(), userId);
-        return new DocumentDownload(documentStorage.load(document.getStorageKey()), document.getOriginalName(), document.getMediaType());
+        return new DocumentDownload(
+            documentStorage.load(document.getStorageKey()),
+            document.getOriginalName(),
+            document.getMediaType()
+        );
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void deleteDocument(Long documentId, Long userId) {
         LessonDocument document = documentRepository.findById(documentId)
             .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Document not found"));
-        Lesson lesson = requireManage(document.getLessonId(), userId);
-        lockManageCourse(lesson.getCourseId(), userId);
-        requireEditable(lesson);
+        LockedLessonContext locked = lockManageLesson(document.getLessonId(), userId);
+        requireEditable(locked.lesson());
         documentCleanup.afterCommit(document.getStorageKey());
         documentRepository.delete(document);
     }
@@ -216,13 +236,19 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
         if (role == UserRole.ADMIN || lessonRepository.countCourseOwner(lesson.getCourseId(), userId) > 0) {
             return LessonViewAccess.MANAGER;
         }
-        if (role == UserRole.STUDENT && lessonRepository.countCourseMember(lesson.getCourseId(), userId) > 0) {
-            if (lesson.getStatus() != LessonStatus.PUBLISHED) {
-                throw new ApiException(ErrorCode.NOT_FOUND, "Lesson not found");
+        if (role == UserRole.STUDENT) {
+            if (lessonRepository.countCourseMember(lesson.getCourseId(), userId) > 0) {
+                if (lesson.getStatus() != LessonStatus.PUBLISHED) {
+                    throw new ApiException(ErrorCode.NOT_FOUND, "Lesson not found");
+                }
+                return LessonViewAccess.ENROLLED_STUDENT;
             }
-            return LessonViewAccess.ENROLLED_STUDENT;
+            if (lessonRepository.countRawCourseMember(lesson.getCourseId(), userId) > 0) {
+                throw new ApiException(ErrorCode.FORBIDDEN, "Course is currently unavailable for learning");
+            }
+            throw new ApiException(ErrorCode.ENROLLMENT_REQUIRED);
         }
-        throw new ApiException(role == UserRole.STUDENT ? ErrorCode.ENROLLMENT_REQUIRED : ErrorCode.FORBIDDEN);
+        throw new ApiException(ErrorCode.FORBIDDEN);
     }
 
     @Override
@@ -246,6 +272,28 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
             throw new ApiException(ErrorCode.SOURCE_TEXT_EMPTY);
         }
         return text;
+    }
+
+    private void precheckUploadAuthority(Long lessonId, Long userId) {
+        Long courseId = lessonRepository.findCourseIdById(lessonId)
+            .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Lesson not found"));
+        if (lessonRepository.countCourseOwner(courseId, userId) == 0) {
+            throw new ApiException(ErrorCode.FORBIDDEN);
+        }
+        LessonStatus status = lessonRepository.findStatusById(lessonId)
+            .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Lesson not found"));
+        if (status == LessonStatus.ARCHIVED) {
+            throw new ApiException(ErrorCode.INVALID_STATE, "Archived lesson is read-only");
+        }
+    }
+
+    private LockedLessonContext lockManageLesson(Long lessonId, Long userId) {
+        Long courseId = lessonRepository.findCourseIdById(lessonId)
+            .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Lesson not found"));
+        Course course = lockManageCourse(courseId, userId);
+        Lesson lockedLesson = lessonRepository.findByIdForUpdate(lessonId)
+            .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Lesson not found"));
+        return new LockedLessonContext(course, lockedLesson);
     }
 
     private Lesson requireManage(Long lessonId, Long userId) {
@@ -297,10 +345,16 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
         if (role == UserRole.ADMIN || lessonRepository.countCourseOwner(courseId, userId) > 0) {
             return LessonViewAccess.MANAGER;
         }
-        if (role == UserRole.STUDENT && lessonRepository.countCourseMember(courseId, userId) > 0) {
-            return LessonViewAccess.ENROLLED_STUDENT;
+        if (role == UserRole.STUDENT) {
+            if (lessonRepository.countCourseMember(courseId, userId) > 0) {
+                return LessonViewAccess.ENROLLED_STUDENT;
+            }
+            if (lessonRepository.countRawCourseMember(courseId, userId) > 0) {
+                throw new ApiException(ErrorCode.FORBIDDEN, "Course is currently unavailable for learning");
+            }
+            throw new ApiException(ErrorCode.ENROLLMENT_REQUIRED);
         }
-        throw new ApiException(role == UserRole.STUDENT ? ErrorCode.ENROLLMENT_REQUIRED : ErrorCode.FORBIDDEN);
+        throw new ApiException(ErrorCode.FORBIDDEN);
     }
 
     private UserRole currentUserRole(Long userId) {
@@ -314,86 +368,31 @@ public class LessonService implements LessonAccessPolicy, LessonSourceTextProvid
             .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Lesson not found"));
     }
 
-    private LessonResponse toResponse(Lesson lesson, boolean includeTranscript) {
-        boolean archived = lesson.getStatus() == LessonStatus.ARCHIVED;
-        boolean hasHistory = lessonRepository.countQuizAttempts(lesson.getId()) > 0;
-        long quizCount = lessonRepository.countQuizzes(lesson.getId());
-        long flashcardCount = lessonRepository.countFlashcards(lesson.getId());
-        boolean lastPublished = lesson.getStatus() == LessonStatus.PUBLISHED
-            && courseRepository.findById(lesson.getCourseId()).map(Course::getIsPublished).orElse(false)
-            && lessonRepository.countByCourseIdAndStatus(lesson.getCourseId(), LessonStatus.PUBLISHED) <= 1;
-        boolean blocked = archived || hasHistory || quizCount > 0 || flashcardCount > 0 || lastPublished;
-        String reason = archived ? "Bài học đã lưu trữ, chỉ có thể xem."
-            : hasHistory ? "Bài học đã có lịch sử làm quiz."
-            : quizCount > 0 || flashcardCount > 0 ? "Xóa quiz và flashcard trước khi xóa bài học."
-            : lastPublished ? "Khóa đang xuất bản cần ít nhất một bài học hiển thị." : null;
-        String transcript = includeTranscript ? lesson.getTranscriptText() : null;
-        return new LessonResponse(
-            lesson.getId(), lesson.getCourseId(), lesson.getTitle(), lesson.getStatus(), lesson.getVideoUrl(), transcript,
-            lesson.getOrderIndex(), documentRepository.countByLessonId(lesson.getId()),
-            quizCount, flashcardCount,
-            !blocked, reason, lesson.getCreatedAt(), lesson.getUpdatedAt()
-        );
-    }
-
-    private LessonDocumentResponse toDocumentResponse(LessonDocument document) {
-        return new LessonDocumentResponse(document.getId(), document.getLessonId(), document.getOriginalName(),
-            document.getMediaType(), document.getSizeBytes(), document.getExtractedText() != null,
-            document.getCreatedAt());
-    }
-
-    private String validateDocument(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Document is empty");
-        }
-        if (file.getSize() > MAX_DOCUMENT_BYTES) {
-            throw new ApiException(ErrorCode.FILE_TOO_LARGE);
-        }
-        String name = safeOriginalName(file).toLowerCase(Locale.ROOT);
-        String detected;
-        try (InputStream input = file.getInputStream()) {
-            detected = new Tika().detect(input, name);
-        } catch (IOException exception) {
-            throw new ApiException(ErrorCode.STORAGE_ERROR, "Could not inspect document");
-        }
-        boolean extensionMatches = switch (detected) {
-            case "application/pdf" -> name.endsWith(".pdf");
-            case "text/plain" -> name.endsWith(".txt");
-            case "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> name.endsWith(".docx");
-            default -> false;
-        };
-        if (!ALLOWED_MEDIA_TYPES.contains(detected) || !extensionMatches) {
-            throw new ApiException(ErrorCode.UNSUPPORTED_FILE_TYPE);
-        }
-        return detected;
-    }
-
-    private String safeOriginalName(MultipartFile file) {
-        String name = file.getOriginalFilename() == null ? "document" : file.getOriginalFilename();
-        name = java.nio.file.Path.of(name).getFileName().toString();
-        return name.length() <= 255 ? name : name.substring(name.length() - 255);
-    }
-
-    private String sha256(MultipartFile file) {
-        try (InputStream input = file.getInputStream()) {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(input.readAllBytes()));
-        } catch (Exception exception) {
-            throw new ApiException(ErrorCode.STORAGE_ERROR, "Could not hash document");
-        }
-    }
-
     private String normalizeText(String text) {
         return text == null || text.isBlank() ? null : text.trim();
     }
 
     private void compactOrders(Long courseId) {
         List<Lesson> lessons = lessonRepository.findByCourseIdForUpdate(courseId);
-        for (int index = 0; index < lessons.size(); index++) {
-            lessons.get(index).changeOrder(index + 1);
+        if (lessons.isEmpty()) {
+            return;
         }
+        shiftAndAssignOrders(lessons, lessons);
     }
 
-    public record DocumentDownload(Resource resource, String originalName, String mediaType) {
+    private void shiftAndAssignOrders(List<Lesson> allLessons, List<Lesson> finalOrder) {
+        int baseOffset = allLessons.stream().mapToInt(Lesson::getOrderIndex).max().orElse(0) + TEMP_ORDER_OFFSET;
+        for (int index = 0; index < allLessons.size(); index++) {
+            allLessons.get(index).changeOrder(baseOffset + index + 1);
+        }
+        lessonRepository.flush();
+        for (int index = 0; index < finalOrder.size(); index++) {
+            finalOrder.get(index).changeOrder(index + 1);
+        }
+        lessonRepository.flush();
     }
+
+    private record LockedLessonContext(Course course, Lesson lesson) {}
+
+    public record DocumentDownload(Resource resource, String originalName, String mediaType) {}
 }

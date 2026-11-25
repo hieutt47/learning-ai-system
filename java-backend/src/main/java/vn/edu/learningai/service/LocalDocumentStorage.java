@@ -4,7 +4,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import vn.edu.learningai.exception.ApiException;
 import vn.edu.learningai.exception.ErrorCode;
@@ -12,10 +11,13 @@ import vn.edu.learningai.exception.ErrorCode;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Service
 public class LocalDocumentStorage implements DocumentStorage {
+    private static final Pattern SAFE_EXTENSION = Pattern.compile("^\\.[a-z0-9]{1,10}$");
     private final Path storageRoot;
 
     public LocalDocumentStorage(@Value("${app.storage.lesson-documents:./data/lesson-documents}") String storageRoot) {
@@ -24,9 +26,15 @@ public class LocalDocumentStorage implements DocumentStorage {
 
     @Override
     public String newKey(MultipartFile file) {
-        String originalName = StringUtils.cleanPath(file.getOriginalFilename() == null ? "document" : file.getOriginalFilename());
-        String extension = originalName.contains(".") ? originalName.substring(originalName.lastIndexOf('.')) : "";
-        return UUID.randomUUID() + extension.toLowerCase(java.util.Locale.ROOT);
+        String rawName = file.getOriginalFilename() == null ? "document" : file.getOriginalFilename();
+        int lastSlash = Math.max(rawName.lastIndexOf('/'), rawName.lastIndexOf('\\'));
+        String baseName = lastSlash >= 0 ? rawName.substring(lastSlash + 1) : rawName;
+        int dot = baseName.lastIndexOf('.');
+        String extension = dot > 0 ? baseName.substring(dot).toLowerCase(Locale.ROOT) : "";
+        if (!SAFE_EXTENSION.matcher(extension).matches()) {
+            extension = "";
+        }
+        return UUID.randomUUID() + extension;
     }
 
     @Override
