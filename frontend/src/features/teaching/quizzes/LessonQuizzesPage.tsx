@@ -7,7 +7,7 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, App, Button, Card, Form, Input, Modal, Space, Table, Tag, Tooltip, Typography, type TableProps } from 'antd'
+import { Alert, App, Button, Card, Form, Grid, Input, Modal, Space, Table, Tag, Tooltip, Typography, type TableProps } from 'antd'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { EmptyState, ErrorState, LoadingState } from '../../../shared/components/PageState'
@@ -31,6 +31,8 @@ export function LessonQuizzesPage() {
   const { lessonId = '' } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const screens = Grid.useBreakpoint()
+  const isCompact = screens.md === false
   const { message, modal } = App.useApp()
   const editability = useLessonEditability(lessonId)
   const readOnly = editability.readOnly
@@ -110,7 +112,7 @@ export function LessonQuizzesPage() {
       render: (title: string, quiz) => (
         <Button
           type="link"
-          style={{ padding: 0 }}
+          style={{ padding: 0, height: 'auto', textAlign: 'left', whiteSpace: 'normal', wordBreak: 'break-word' }}
           onClick={() => navigate(paths.quizEditor(quiz.id))}
         >
           {title}
@@ -188,7 +190,7 @@ export function LessonQuizzesPage() {
   }
 
   const actions = !readOnly && (
-    <Space>
+    <Space wrap>
       <Button
         icon={<ThunderboltOutlined />}
         onClick={() => navigate(paths.teachingLessonAi(lessonId))}
@@ -212,13 +214,21 @@ export function LessonQuizzesPage() {
         title={
           <div>
             <span>Quiz của bài ({quizzes.length})</span>
-            <Typography.Paragraph type="secondary" style={{ marginBottom: 0, fontWeight: 'normal', fontSize: 13 }}>
+            <Typography.Paragraph
+              type="secondary"
+              style={{ marginBottom: 0, fontWeight: 'normal', fontSize: 13, whiteSpace: 'normal' }}
+            >
               Quiz đã xuất bản không sửa được — tạo bản nháp mới nếu cần thay đổi.
             </Typography.Paragraph>
           </div>
         }
-        extra={actions || undefined}
+        extra={isCompact ? undefined : actions || undefined}
       >
+        {isCompact && actions && quizzes.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            {actions}
+          </div>
+        )}
         {quizzes.length === 0 ? (
           <EmptyState
             description="Bài học chưa có quiz nào."
@@ -230,6 +240,7 @@ export function LessonQuizzesPage() {
             columns={columns}
             dataSource={quizzes}
             pagination={false}
+            scroll={{ x: 'max-content' }}
           />
         )}
       </Card>

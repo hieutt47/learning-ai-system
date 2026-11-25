@@ -43,10 +43,33 @@ const common: ThemeConfig = {
 
 const lightTokens: ThemeConfig['token'] = {
   colorPrimary: '#4F46E5',
+  colorLink: '#4338CA',
+  colorLinkHover: '#3730A3',
+  colorLinkActive: '#312E81',
   colorSuccess: '#16A34A',
+  colorSuccessText: '#14532D',
+  colorSuccessTextHover: '#166534',
+  colorSuccessTextActive: '#052E16',
+  colorSuccessBg: '#ECFDF3',
+  colorSuccessBorder: '#86EFAC',
   colorWarning: '#D97706',
+  colorWarningText: '#92400E',
+  colorWarningTextHover: '#78350F',
+  colorWarningTextActive: '#451A03',
+  colorWarningBg: '#FFFBEB',
+  colorWarningBorder: '#FCD34D',
   colorError: '#DC2626',
+  colorErrorText: '#991B1B',
+  colorErrorTextHover: '#7F1D1D',
+  colorErrorTextActive: '#450A0A',
+  colorErrorBg: '#FEF2F2',
+  colorErrorBorder: '#FCA5A5',
   colorInfo: '#0891B2',
+  colorInfoText: '#155E75',
+  colorInfoTextHover: '#164E63',
+  colorInfoTextActive: '#083344',
+  colorInfoBg: '#ECFEFF',
+  colorInfoBorder: '#67E8F9',
   colorBgLayout: '#F5F6FA',
   colorBgContainer: '#FFFFFF',
   colorBgElevated: '#FFFFFF',
@@ -80,5 +103,20 @@ export function antdThemeFor(mode: ThemeMode): ThemeConfig {
     ...common,
     algorithm: mode === 'dark' ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
     token: { ...common.token, ...(mode === 'dark' ? darkTokens : lightTokens) },
+    components: {
+      ...common.components,
+      ...(mode === 'light'
+        ? {
+            // AntD v6 Tag status variants read component-scoped colorSuccess/Warning/Info/Error
+            // for text foreground. Scoped here so icons, progress rings, buttons, and dark mode stay intact.
+            Tag: {
+              colorSuccess: '#14532D',
+              colorWarning: '#92400E',
+              colorInfo: '#155E75',
+              colorError: '#991B1B',
+            },
+          }
+        : {}),
+    },
   }
 }
