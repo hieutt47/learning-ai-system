@@ -1,11 +1,16 @@
+import {
+  codePointLength,
+  isBlankText,
+  MAX_QUIZ_TITLE_LENGTH,
+  normalizeOptionContent,
+  trimUnicodeWhitespace,
+  validateQuestion,
+  type QuestionValidationResult,
+} from '../quizzes/quizValidation'
 import type { QuizQuestion } from './api'
 
 export function normalizeCompareText(value: string): string {
-  return value.normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase()
-}
-
-function codePointLength(value: string): number {
-  return Array.from(value).length
+  return normalizeOptionContent(value)
 }
 
 export function duplicateIndexes(values: string[]): Set<number> {
@@ -25,45 +30,24 @@ export function duplicateIndexes(values: string[]): Set<number> {
   return duplicates
 }
 
+export function validateAiQuestion(question: QuizQuestion, index = 0): QuestionValidationResult {
+  return validateQuestion(
+    {
+      content: question.content,
+      explanation: question.explanation,
+      options: question.options.map((option) => ({
+        content: option.content,
+        isCorrect: option.is_correct,
+      })),
+    },
+    index,
+  )
+}
+
 export function questionErrors(question: QuizQuestion, isDuplicate = false): string[] {
-  const errors: string[] = []
-  const trimmedContent = question.content.trim()
-  if (!trimmedContent) {
-    errors.push('Nhập nội dung câu hỏi')
-  } else if (codePointLength(trimmedContent) > 4000) {
-    errors.push('Nội dung câu hỏi không vượt quá 4000 ký tự')
-  }
+  const errors = [...validateAiQuestion(question).messages]
   if (isDuplicate) {
     errors.push('Nội dung câu hỏi bị trùng với câu khác trong bản nháp')
-  }
-
-  if (question.options.length < 2 || question.options.length > 6) {
-    errors.push('Cần từ 2 đến 6 đáp án')
-  }
-  if (question.options.some(option => !option.content.trim())) {
-    errors.push('Nhập nội dung cho mọi đáp án')
-  }
-  if (question.options.some(option => codePointLength(option.content.trim()) > 1000)) {
-    errors.push('Mỗi đáp án không vượt quá 1000 ký tự')
-  }
-  if (question.options.filter(option => option.is_correct).length !== 1) {
-    errors.push('Chọn đúng một đáp án đúng')
-  }
-
-  const seenOptions = new Set<string>()
-  for (const option of question.options) {
-    const normalized = normalizeCompareText(option.content)
-    if (normalized) {
-      if (seenOptions.has(normalized)) {
-        errors.push('Các phương án đáp án không được trùng lặp nội dung')
-        break
-      }
-      seenOptions.add(normalized)
-    }
-  }
-
-  if (question.explanation && codePointLength(question.explanation.trim()) > 4000) {
-    errors.push('Giải thích không vượt quá 4000 ký tự')
   }
   return errors
 }
@@ -73,8 +57,8 @@ export function cardErrors(
   isDuplicate = false,
 ): string[] {
   const errors: string[] = []
-  const front = card.front_text.trim()
-  const back = card.back_text.trim()
+  const front = trimUnicodeWhitespace(card.front_text)
+  const back = trimUnicodeWhitespace(card.back_text)
   if (!front) {
     errors.push('Nhập mặt trước')
   } else if (codePointLength(front) > 4000) {
@@ -89,4 +73,123 @@ export function cardErrors(
     errors.push('Mặt sau không vượt quá 4000 ký tự')
   }
   return errors
+}
+
+/**
+ * Kiểm tra tên quiz trên trang xem trước AI.
+ * - Undefined hoặc chuỗi rỗng hoàn toàn: hợp lệ (sẽ dùng mặc định "Quiz do AI tạo").
+ * - Có nhập ký tự nhưng chỉ toàn khoảng trắng Unicode: không hợp lệ.
+ * - Quá 200 code points: không hợp lệ.
+ */
+export function aiQuizTitleError(title: string | undefined): string | null {
+  if (title === undefined || title === '') {
+    return null
+  }
+  if (isBlankText(title)) {
+    return 'Tên quiz không được chỉ chứa khoảng trắng.'
+  }
+  if (codePointLength(title) > MAX_QUIZ_TITLE_LENGTH) {
+    return `Tên quiz tối đa ${MAX_QUIZ_TITLE_LENGTH} ký tự.`
+  }
+  return null
+}
+
+export interface AiQuizPreflightResult {
+  titleError: string | null
+  questionResults: QuestionValidationResult[]
+  duplicateQuestionIndices: Set<number>
+  summaryErrors: { key: string; targetId: string; message: string }[]
+  isValid: boolean
+}
+
+export function preflightAiQuizDraft(
+  title: string | undefined,
+  items: QuizQuestion[],
+): AiQuizPreflightResult {
+  const titleError = aiQuizTitleError(title)
+  const questionResults = items.map((q, idx) => validateAiQuestion(q, idx))
+  const duplicateQuestionIndices = duplicateIndexes(items.map((q) => q.content))
+  const summaryErrors: { key: string; targetId: string; message: string }[] = []
+
+  if (titleError) {
+    summaryErrors.push({ key: 'ai-quiz-title', targetId: 'quiz-title', message: titleError })
+  }
+  if (items.length === 0) {
+    summaryErrors.push({
+      key: 'ai-quiz-empty',
+      targetId: 'quiz-title',
+      message: 'Cần có ít nhất 1 câu hỏi trước khi lưu.',
+    })
+  }
+  for (const res of questionResults) {
+    const qNum = res.questionIndex + 1
+    const isDuplicateQuestion = duplicateQuestionIndices.has(res.questionIndex)
+    if (res.isValid && !isDuplicateQuestion) continue
+    if (res.contentBlank || res.contentTooLong) {
+      summaryErrors.push({
+        key: `ai-q-${res.questionIndex}-content`,
+        targetId: `ai-q-${res.questionIndex}-content`,
+        message: res.contentBlank
+          ? `Câu ${qNum}: chưa nhập nội dung câu hỏi`
+          : `Câu ${qNum}: nội dung câu hỏi vượt quá 4000 ký tự`,
+      })
+    }
+    if (isDuplicateQuestion) {
+      summaryErrors.push({
+        key: `ai-q-${res.questionIndex}-dup-question`,
+        targetId: `ai-q-${res.questionIndex}-content`,
+        message: `Câu ${qNum}: nội dung câu hỏi bị trùng với câu khác trong bản nháp`,
+      })
+    }
+    if (res.invalidOptionCount) {
+      summaryErrors.push({
+        key: `ai-q-${res.questionIndex}-opt-count`,
+        targetId: `ai-q-${res.questionIndex}-content`,
+        message: `Câu ${qNum}: cần từ 2 đến 6 đáp án`,
+      })
+    }
+    for (const oIdx of res.blankOptionIndices) {
+      summaryErrors.push({
+        key: `ai-q-${res.questionIndex}-opt-${oIdx}-blank`,
+        targetId: `ai-q-${res.questionIndex}-opt-${oIdx}`,
+        message: `Câu ${qNum}: đáp án ${String.fromCharCode(65 + oIdx)} đang để trống`,
+      })
+    }
+    for (const oIdx of res.tooLongOptionIndices) {
+      summaryErrors.push({
+        key: `ai-q-${res.questionIndex}-opt-${oIdx}-long`,
+        targetId: `ai-q-${res.questionIndex}-opt-${oIdx}`,
+        message: `Câu ${qNum}: đáp án ${String.fromCharCode(65 + oIdx)} vượt quá 1000 ký tự`,
+      })
+    }
+    for (const group of res.duplicateGroups) {
+      summaryErrors.push({
+        key: `ai-q-${res.questionIndex}-dup-${group.optionIndices.join('-')}`,
+        targetId: `ai-q-${res.questionIndex}-opt-${group.optionIndices[1] ?? group.optionIndices[0]}`,
+        message: `Câu ${qNum}: đáp án ${group.labels.join(', ')} trùng nội dung`,
+      })
+    }
+    if (res.invalidCorrectCount) {
+      summaryErrors.push({
+        key: `ai-q-${res.questionIndex}-correct`,
+        targetId: `ai-q-${res.questionIndex}-opt-0`,
+        message: `Câu ${qNum}: chọn đúng 1 đáp án đúng`,
+      })
+    }
+    if (res.explanationTooLong) {
+      summaryErrors.push({
+        key: `ai-q-${res.questionIndex}-explanation`,
+        targetId: `ai-q-${res.questionIndex}-explanation`,
+        message: `Câu ${qNum}: giải thích vượt quá 4000 ký tự`,
+      })
+    }
+  }
+
+  return {
+    titleError,
+    questionResults,
+    duplicateQuestionIndices,
+    summaryErrors,
+    isValid: summaryErrors.length === 0,
+  }
 }

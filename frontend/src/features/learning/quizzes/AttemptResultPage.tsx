@@ -67,13 +67,22 @@ export function AttemptResultPage() {
   const isPassed = score >= 50
   const isGreat = score >= 80
 
-  const reviews = attempt.reviews ?? []
-  const wrongReviews = reviews.filter((r) => !r.isCorrect)
-  const displayedReviews = filterMode === 'wrong' ? wrongReviews : reviews
+  const indexedReviews = (attempt.reviews ?? []).map((review, index) => ({
+    ...review,
+    originalNumber: index + 1,
+  }))
+  const wrongReviews = indexedReviews.filter((r) => !r.isCorrect)
+  const displayedReviews = filterMode === 'wrong' ? wrongReviews : indexedReviews
 
-  let scoreColor = token.colorError
-  if (isGreat) scoreColor = token.colorSuccess
-  else if (isPassed) scoreColor = token.colorWarning
+  let scoreStrokeColor = token.colorError
+  let scoreTextColor = token.colorErrorText
+  if (isGreat) {
+    scoreStrokeColor = token.colorSuccess
+    scoreTextColor = token.colorSuccessText
+  } else if (isPassed) {
+    scoreStrokeColor = token.colorWarning
+    scoreTextColor = token.colorWarningText
+  }
 
   return (
     <Space orientation="vertical" size={24} style={{ width: '100%' }}>
@@ -84,10 +93,10 @@ export function AttemptResultPage() {
             <Progress
               type="circle"
               percent={score}
-              strokeColor={scoreColor}
+              strokeColor={scoreStrokeColor}
               format={() => (
                 <div>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: scoreColor }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: scoreTextColor }}>
                     {score}
                   </div>
                   <div style={{ fontSize: 13, color: token.colorTextSecondary }}>Điểm</div>
@@ -97,8 +106,11 @@ export function AttemptResultPage() {
           </Col>
           <Col xs={24} sm={16}>
             <Space orientation="vertical" size={12} style={{ width: '100%' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Typography.Title level={3} style={{ margin: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                <Typography.Title
+                  level={3}
+                  style={{ margin: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                >
                   {attempt.quizTitle}
                 </Typography.Title>
                 <Tag color={isGreat ? 'success' : isPassed ? 'warning' : 'error'} style={{ fontSize: 14, padding: '2px 10px' }}>
@@ -135,17 +147,19 @@ export function AttemptResultPage() {
 
       {/* Xem lại chi tiết từng câu hỏi */}
       <Card
-        title="Xem lại bài làm"
-        extra={
-          <Radio.Group
-            value={filterMode}
-            onChange={(e) => setFilterMode(e.target.value)}
-            optionType="button"
-            buttonStyle="solid"
-          >
-            <Radio.Button value="all">Tất cả ({reviews.length})</Radio.Button>
-            <Radio.Button value="wrong">Câu sai ({wrongReviews.length})</Radio.Button>
-          </Radio.Group>
+        title={
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+            <span>Xem lại bài làm</span>
+            <Radio.Group
+              value={filterMode}
+              onChange={(e) => setFilterMode(e.target.value)}
+              optionType="button"
+              buttonStyle="solid"
+            >
+              <Radio.Button value="all">Tất cả ({indexedReviews.length})</Radio.Button>
+              <Radio.Button value="wrong">Câu sai ({wrongReviews.length})</Radio.Button>
+            </Radio.Group>
+          </div>
         }
       >
         {displayedReviews.length === 0 ? (
@@ -154,13 +168,13 @@ export function AttemptResultPage() {
           </div>
         ) : (
           <Space orientation="vertical" size={20} style={{ width: '100%' }}>
-            {displayedReviews.map((review, idx) => (
+            {displayedReviews.map((review) => (
               <Card
-                key={review.questionId || idx}
+                key={review.questionId}
                 type="inner"
                 title={
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>Câu {idx + 1}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                    <span>Câu {review.originalNumber}</span>
                     {review.isCorrect ? (
                       <Tag color="success" icon={<CheckCircleFilled />}>
                         Chính xác
@@ -173,7 +187,15 @@ export function AttemptResultPage() {
                   </div>
                 }
               >
-                <Typography.Paragraph style={{ fontSize: 15, fontWeight: 500, marginBottom: 16 }}>
+                <Typography.Paragraph
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 500,
+                    marginBottom: 16,
+                    overflowWrap: 'anywhere',
+                    wordBreak: 'break-word',
+                  }}
+                >
                   {review.questionContent}
                 </Typography.Paragraph>
 
@@ -210,15 +232,18 @@ export function AttemptResultPage() {
                           color,
                           fontSize: 14,
                           display: 'flex',
-                          alignItems: 'center',
+                          alignItems: 'flex-start',
+                          flexWrap: 'wrap',
                           gap: 10,
                         }}
                       >
                         <span style={{ fontWeight: 600 }}>
                           {String.fromCharCode(65 + oIndex)}.
                         </span>
-                        <span style={{ flex: 1 }}>{opt.content}</span>
-                        {label && <strong style={{ fontSize: 12 }}>{label}</strong>}
+                        <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+                          {opt.content}
+                        </span>
+                        {label && <strong style={{ fontSize: 12, flexShrink: 0 }}>{label}</strong>}
                       </div>
                     )
                   })}
@@ -234,6 +259,8 @@ export function AttemptResultPage() {
                       border: `1px solid ${token.colorInfoBorder}`,
                       fontSize: 13,
                       color: token.colorInfoText,
+                      overflowWrap: 'anywhere',
+                      wordBreak: 'break-word',
                     }}
                   >
                     <strong>Giải thích: </strong>

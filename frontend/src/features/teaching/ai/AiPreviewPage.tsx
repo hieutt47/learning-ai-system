@@ -13,9 +13,10 @@ import {
 import { CardEditor, type CandidateCard } from './CardEditor'
 import { cardsDraft, clearDraft, quizDraft, readDraft, writeDraft, type AiDraft } from './draft'
 import { QuestionEditor } from './QuestionEditor'
-import { cardErrors, duplicateIndexes, questionErrors } from './validation'
+import { cardErrors, duplicateIndexes, preflightAiQuizDraft } from './validation'
 import { AiButton } from './AiButton'
 import { useLessonEditability } from '../lessons/useLessonEditability'
+import { trimUnicodeWhitespace } from '../quizzes/quizValidation'
 
 function createRequestId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -116,6 +117,14 @@ function AiPreviewContent({ lessonId }: { lessonId: string }) {
     onError: error => void message.error(error.message),
   })
 
+  const focusField = (targetId: string) => {
+    const el = document.getElementById(targetId)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.focus()
+    }
+  }
+
   const saveDraftMutation = useMutation({
     mutationFn: async () => {
       if (!draft) return
@@ -123,8 +132,15 @@ function AiPreviewContent({ lessonId }: { lessonId: string }) {
       let failedIndex: number | undefined
       try {
         if (current.kind === 'quiz') {
+          const preflight = preflightAiQuizDraft(current.title, current.items)
+          if (!preflight.isValid) {
+            setSaveError('Vui lòng sửa các lỗi được đánh dấu trước khi lưu bản nháp.')
+            const firstTarget = preflight.summaryErrors[0]?.targetId
+            if (firstTarget) focusField(firstTarget)
+            return
+          }
           let quizId = current.quiz_id
-          const title = current.title?.trim() || 'Quiz do AI tạo'
+          const title = trimUnicodeWhitespace(current.title ?? '') || 'Quiz do AI tạo'
           if (!quizId) {
             const quiz = await createQuiz(lessonId, {
               title,
@@ -143,11 +159,11 @@ function AiPreviewContent({ lessonId }: { lessonId: string }) {
             request_id: requestId,
             title,
             questions: current.items.map((question, index) => ({
-              content: question.content.trim(),
-              explanation: question.explanation?.trim() ?? '',
+              content: trimUnicodeWhitespace(question.content),
+              explanation: question.explanation ? trimUnicodeWhitespace(question.explanation) : '',
               order_index: index,
               options: question.options.map((option, optionIndex) => ({
-                content: option.content.trim(),
+                content: trimUnicodeWhitespace(option.content),
                 is_correct: option.is_correct,
                 order_index: optionIndex,
               })),
@@ -160,8 +176,8 @@ function AiPreviewContent({ lessonId }: { lessonId: string }) {
             failedIndex = index
             const card = current.items[index]
             await createCard(lessonId, {
-              front_text: card.front_text.trim(),
-              back_text: card.back_text.trim(),
+              front_text: trimUnicodeWhitespace(card.front_text),
+              back_text: trimUnicodeWhitespace(card.back_text),
               generation_id: current.generation_id,
             })
             current = { ...current, saved_count: index + 1 }
@@ -176,9 +192,9 @@ function AiPreviewContent({ lessonId }: { lessonId: string }) {
     },
     retry: false,
     onError: error => {
-      const quizUnavailable = draft?.kind === 'quiz' && isApiError(error) && error.status === 404
-      setSaveError(quizUnavailable
-        ? 'Chưa lưu được quiz — chức năng quiz chưa sẵn sàng, thử lại sau.'
+      const notFound = draft?.kind === 'quiz' && isApiError(error) && error.status === 404
+      setSaveError(notFound
+        ? 'Không tìm thấy bài học hoặc quiz đích. Hãy tải lại trang và thử lại.'
         : isApiError(error) ? error.message : 'Không lưu được. Hãy thử lại.')
       if (isApiError(error) && error.status === 400) setSaveFields(error.fieldErrors())
       else setSaveFields({})
@@ -213,13 +229,13 @@ function AiPreviewContent({ lessonId }: { lessonId: string }) {
     )
   }
 
+  const quizPreflight = draft.kind === 'quiz' ? preflightAiQuizDraft(draft.title, draft.items) : null
   const duplicateItemIndexes = draft.kind === 'quiz'
-    ? duplicateIndexes(draft.items.map(question => question.content))
+    ? quizPreflight!.duplicateQuestionIndices
     : duplicateIndexes(draft.items.map(card => card.front_text))
 
   const invalid = draft.kind === 'quiz'
-    ? draft.items.some((question, index) =>
-      questionErrors(question, duplicateItemIndexes.has(index)).length > 0)
+    ? !quizPreflight!.isValid
     : draft.items.some((card, index) =>
       cardErrors(card, duplicateItemIndexes.has(index)).length > 0)
 
@@ -284,14 +300,45 @@ function AiPreviewContent({ lessonId }: { lessonId: string }) {
             value={draft.title ?? ''}
             placeholder="Quiz do AI tạo"
             disabled={draft.saved_count > 0}
+            status={quizPreflight?.titleError ? 'error' : undefined}
+            aria-invalid={Boolean(quizPreflight?.titleError) || undefined}
+            aria-describedby={quizPreflight?.titleError ? 'quiz-title-error' : undefined}
             onChange={event => changeDraft({ ...draft, title: event.target.value })}
           />
+          {quizPreflight?.titleError && (
+            <Typography.Text id="quiz-title-error" type="danger" style={{ display: 'block', marginTop: 4 }}>
+              {quizPreflight.titleError}
+            </Typography.Text>
+          )}
           {saveFields.title && (
-            <Typography.Text type="danger">
+            <Typography.Text type="danger" style={{ display: 'block', marginTop: 4 }}>
               {saveFields.title}
             </Typography.Text>
           )}
         </Card>
+      )}
+      {quizPreflight && !quizPreflight.isValid && (
+        <Alert
+          type="error"
+          showIcon
+          message={`Có ${quizPreflight.summaryErrors.length} lỗi cần sửa trước khi lưu quiz nháp`}
+          description={(
+            <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+              {quizPreflight.summaryErrors.map((issue) => (
+                <li key={issue.key}>
+                  <Button
+                    type="link"
+                    size="small"
+                    style={{ padding: 0, height: 'auto', textAlign: 'left', whiteSpace: 'normal' }}
+                    onClick={() => focusField(issue.targetId)}
+                  >
+                    {issue.message}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        />
       )}
       <div
         style={{

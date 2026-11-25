@@ -139,15 +139,30 @@ public class AttemptService {
 
     @Transactional(readOnly = true)
     public Object get(Long attemptId) {
-        User student = currentStudent();
+        User user = security.getCurrentUser();
         QuizAttempt attempt = attemptRepository.findById(attemptId)
             .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Attempt not found"));
-        requireOwner(attempt, student.getId());
+        Quiz quiz = null;
+        if (user.getRole() == UserRole.STUDENT) {
+            requireOwner(attempt, user.getId());
+        } else if (user.getRole() == UserRole.TEACHER) {
+            quiz = quizRepository.findById(attempt.getQuizId())
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Quiz not found"));
+            var lesson = contextRepository.findLesson(quiz.getLessonId())
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Lesson not found"));
+            if (!user.getId().equals(lesson.teacherId())) {
+                throw new ApiException(ErrorCode.FORBIDDEN);
+            }
+        } else if (user.getRole() != UserRole.ADMIN) {
+            throw new ApiException(ErrorCode.FORBIDDEN);
+        }
         if (attempt.getStatus() == AttemptStatus.IN_PROGRESS) {
             return toAttempt(attempt);
         }
-        Quiz quiz = quizRepository.findById(attempt.getQuizId())
-            .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Quiz not found"));
+        if (quiz == null) {
+            quiz = quizRepository.findById(attempt.getQuizId())
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Quiz not found"));
+        }
         List<Question> questions = questionRepository.findByQuizIdOrderByOrderIndexAsc(quiz.getId());
         return storedResult(attempt, quiz, questions, loadOptions(questions));
     }

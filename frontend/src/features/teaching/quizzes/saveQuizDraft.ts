@@ -1,14 +1,18 @@
 import { isApiError } from '../../../shared/api/client'
 import { saveDraftSnapshot } from './quiz.api'
+import { trimUnicodeWhitespace } from './quizValidation'
 import type { QuestionWriteRequest, QuizQuestionAuthor } from './quiz.types'
 
 export function questionPayload(question: QuizQuestionAuthor, index: number): QuestionWriteRequest {
+  const trimmedExplanation = question.explanation ? trimUnicodeWhitespace(question.explanation) : ''
   return {
-    content: question.content.trim(),
-    explanation: question.explanation?.trim() || null,
+    content: trimUnicodeWhitespace(question.content),
+    explanation: trimmedExplanation || null,
     order_index: index,
     options: question.options.map((option, position) => ({
-      content: option.content.trim(), is_correct: option.isCorrect, order_index: position,
+      content: trimUnicodeWhitespace(option.content),
+      is_correct: option.isCorrect,
+      order_index: position,
     })),
   }
 }
@@ -20,7 +24,7 @@ export function createDraftSaver() {
   return async (quizId: string, title: string, questions: QuizQuestionAuthor[]) => {
     if (!pending) {
       pending = { quizId, body: {
-        request_id: crypto.randomUUID(), title: title.trim(),
+        request_id: crypto.randomUUID(), title: trimUnicodeWhitespace(title),
         questions: questions.map((q, i) => ({ ...questionPayload(q, i), ...(q.id ? { id: q.id } : {}) })),
       } }
     }
