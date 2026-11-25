@@ -27,7 +27,7 @@ export function TeacherRequestsPage() {
   const selected = query.data?.items.find((request) => request.id === selectedId) ?? query.data?.items[0] ?? null
 
   const columns: TableColumnsType<TeacherRequest> = [
-    { title: 'Người gửi', dataIndex: 'user_id', width: 180, render: (id: Id) => <div><b>Người dùng</b><div className="account-id">Mã: {id}</div></div> },
+    { title: 'Người gửi', dataIndex: 'full_name', width: 180, render: (fullName: string, request) => <div><b>{fullName}</b><div className="account-id">Mã: {request.user_id}</div></div> },
     { title: 'Lý do', dataIndex: 'reason', width: 250, ellipsis: true },
     { title: 'Trạng thái', dataIndex: 'status', width: 130, render: (value: TeacherRequestStatus) => <TeacherRequestStatusTag status={value} /> },
     { title: 'Ngày gửi', dataIndex: 'created_at', width: 165, render: formatDateTime },

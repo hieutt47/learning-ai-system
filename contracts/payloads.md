@@ -17,7 +17,7 @@ Field dưới đây là thiết kế; khi viết OpenAPI phải khai báo requir
 | Profile | full_name bắt buộc, không null/rỗng/chỉ có khoảng trắng, dài 1–120 ký tự; body thiếu full_name trả 400 VALIDATION_ERROR | User (200); chỉ cập nhật full_name, không đổi email/password/role/is_active |
 | UserStatus | is_active | User |
 | UserSearch | Query email tùy chọn, tối đa 254 ký tự sau trim; page/page_size/sort | Page<User>; chỉ ADMIN, tìm email chứa chuỗi không phân biệt hoa/thường; email thiếu/rỗng/chỉ khoảng trắng trả danh sách không lọc |
-| TeacherRequest/Decision | reason bắt buộc, không null/rỗng/chỉ có khoảng trắng, tối đa 4000 ký tự / status bắt buộc APPROVED hoặc REJECTED, decision_note nullable tối đa 4000 ký tự | id, user_id, reason, status, decided_by nullable, decision_note nullable, decided_at nullable, created_at; các ID là string, timestamp UTC |
+| TeacherRequest/Decision | reason bắt buộc, không null/rỗng/chỉ có khoảng trắng, tối đa 4000 ký tự / status bắt buộc APPROVED hoặc REJECTED, decision_note nullable tối đa 4000 ký tự | id, user_id, full_name (họ tên hiện tại của người gửi), reason, status, decided_by nullable, decision_note nullable, decided_at nullable, created_at; các ID là string, timestamp UTC |
 | CategoryWrite | POST: name bắt buộc, description nullable; PATCH: chỉ cập nhật name/description khác null, field thiếu hoặc null giữ nguyên; description rỗng được lưu là chuỗi rỗng | id, name, description |
 | CourseWrite | title, description, category_id, price | CourseOwner: id, fields trên, thumbnail_url nullable, is_published, archived_at nullable, teacher_id, created_at, updated_at |
 | Publication/Archive | is_published / archived=true | CourseOwner |

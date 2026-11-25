@@ -11,6 +11,7 @@ export const TEACHER_REQUEST_STATUS_LABEL: Record<TeacherRequestStatus, string> 
 export interface TeacherRequest {
   id: Id
   user_id: Id
+  full_name: string
   reason: string
   status: TeacherRequestStatus
   decided_by: Id | null

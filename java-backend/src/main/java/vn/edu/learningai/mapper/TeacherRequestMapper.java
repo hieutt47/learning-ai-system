@@ -8,6 +8,7 @@ import vn.edu.learningai.entity.TeacherRequest;
 @Mapper(componentModel = "spring")
 public interface TeacherRequestMapper {
     @Mapping(target = "userId", source = "user.id")
+    @Mapping(target = "fullName", source = "user.fullName")
     @Mapping(target = "decidedBy", source = "decidedBy.id")
     TeacherRequestResponse toResponse(TeacherRequest teacherRequest);
 }

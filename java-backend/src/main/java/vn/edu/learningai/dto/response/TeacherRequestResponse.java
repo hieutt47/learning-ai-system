@@ -15,6 +15,7 @@ import java.time.Instant;
 public class TeacherRequestResponse {
     private String id;
     private String userId;
+    private String fullName;
     private String reason;
     private TeacherRequestStatus status;
     private String decidedBy;

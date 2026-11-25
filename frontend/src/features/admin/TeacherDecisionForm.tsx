@@ -58,6 +58,7 @@ export function TeacherDecisionForm({ request, onBusyChange, onResolved }: { req
       <div className="account-stack">
         <Descriptions column={1} size="small" items={[
           { key: 'id', label: 'Mã yêu cầu', children: <span className="account-id">{request.id}</span> },
+          { key: 'name', label: 'Họ tên người gửi', children: request.full_name },
           { key: 'user', label: 'Mã người gửi', children: <span className="account-id">{request.user_id}</span> },
           { key: 'created', label: 'Ngày gửi', children: formatDateTime(request.created_at) },
         ]} />
